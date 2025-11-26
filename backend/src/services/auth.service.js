@@ -1,3 +1,4 @@
+// backend/src/services/auth.service.js
 import User from "../models/User.js";
 import Calendar from "../models/Calendar.js";
 
@@ -25,7 +26,10 @@ export const registerUser = async ({ name, email, password }) => {
     description: "Default calendar",
     color: "#3b82f6",
     owner: user._id,
-    users: [user._id],
+    editors: [],
+    members: [],
+    isMain: true,
+    isHidden: false,
   });
 
   // Генерируем токен

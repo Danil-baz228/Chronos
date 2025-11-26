@@ -1,43 +1,49 @@
-import React, { useEffect, useState } from "react";
-import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import {
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  addMinutes,
-  parseISO,
-} from "date-fns";
-import "react-big-calendar/lib/css/react-big-calendar.css";
+import React, {
+  useEffect,
+  useState,
+  useContext,
+  useCallback,
+} from "react";
+
 import Navbar from "../components/Navbar";
-import CalendarManager from "../components/CalendarManager"; // 🆕 импорт управления календарями
+import CalendarToolbar from "../components/CalendarToolbar";
+import CalendarView from "../components/CalendarView";
+import EventModal from "../components/EventModal";
+import EventPreview from "../components/EventPreview";
+import CalendarManager from "../components/CalendarManager";
 
-const locales = {
-  "en-US": require("date-fns/locale/en-US"),
-};
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
-  getDay,
-  locales,
-});
+import { ThemeContext } from "../context/ThemeContext";
 
 export default function CalendarPage() {
+  const { theme } = useContext(ThemeContext);
+
   const [calendars, setCalendars] = useState([]);
   const [selectedCalendar, setSelectedCalendar] = useState(null);
   const [events, setEvents] = useState([]);
+
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // add | edit
+  const [modalMode, setModalMode] = useState("add");
   const [editEvent, setEditEvent] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+
   const [loading, setLoading] = useState(true);
 
-  // управление навигацией календаря
   const [currentView, setCurrentView] = useState("month");
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  const [previewEvent, setPreviewEvent] = useState(null);
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+
+  const colorByCategory = {
+    arrangement: "#3b82f6",
+    reminder: "#facc15",
+    task: "#22c55e",
+    holiday: "#ef4444",
+  };
 
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -45,11 +51,14 @@ export default function CalendarPage() {
     duration: 60,
     category: "arrangement",
     description: "",
+    color: "",
   });
 
   const token = localStorage.getItem("token");
 
-  // 🔹 Загрузка календарей и событий
+  // ===========================
+  //   ЗАГРУЗКА ДАННЫХ
+  // ===========================
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -66,391 +75,404 @@ export default function CalendarPage() {
         ]);
 
         const calData =
-          calRes.status === "fulfilled" ? await calRes.value.json() : [];
+          calRes.status === "fulfilled" && calRes.value.ok
+            ? await calRes.value.json()
+            : [];
+
         const evData =
-          evRes.status === "fulfilled" ? await evRes.value.json() : [];
+          evRes.status === "fulfilled" && evRes.value.ok
+            ? await evRes.value.json()
+            : [];
+
         const holData =
           holRes.status === "fulfilled" && holRes.value.ok
-            ? await holRes.value.json()
-            : [
-                { title: "New Year", date: "2025-01-01", category: "holiday" },
-                { title: "Christmas", date: "2025-01-07", category: "holiday" },
-              ];
+            ? (await holRes.value.json()).map((h) => ({
+                _id: `holiday-${h.date}-${h.title}`,
+                title: h.title,
+                date: h.date,
+                allDay: true,
+                category: "holiday",
+                color: "#ef4444",
+                calendar: calData[0]?._id || null,
+              }))
+            : [];
 
         setCalendars(calData);
         setSelectedCalendar(calData[0]?._id || null);
         setEvents([...evData, ...holData]);
       } catch (err) {
-        console.error("Ошибка загрузки данных:", err);
+        console.error("Ошибка загрузки:", err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchAll();
   }, [token]);
 
-  // 🔹 Фильтрация событий
+  // ===========================
+  //   ФИЛЬТРАЦИЯ
+  // ===========================
   const filteredEvents = events.filter((e) => {
-    const matchesSearch = e.title
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter
-      ? e.category === categoryFilter
-      : true;
+    const matchesSearch = e.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter ? e.category === categoryFilter : true;
     const matchesCalendar = selectedCalendar
-      ? !e.calendar || e.calendar === selectedCalendar
+      ? !e.calendar || e.calendar?.toString() === selectedCalendar?.toString()
       : true;
+
     return matchesSearch && matchesCategory && matchesCalendar;
   });
 
-  const colorByCategory = {
-    arrangement: "#3b82f6",
-    reminder: "#facc15",
-    task: "#22c55e",
-    holiday: "#ef4444",
-  };
-
-  // 🔹 Добавить или обновить событие
+  // ===========================
+  //   СОХРАНЕНИЕ СОБЫТИЯ
+  // ===========================
   const handleSaveEvent = async (e) => {
     e.preventDefault();
+
     const url =
       modalMode === "edit"
         ? `http://localhost:5000/api/events/${editEvent._id}`
         : "http://localhost:5000/api/events";
+
     const method = modalMode === "edit" ? "PUT" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...newEvent,
-        calendar: selectedCalendar,
-      }),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...newEvent,
+          calendar: selectedCalendar,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data._id) {
-      if (modalMode === "edit") {
-        setEvents((prev) =>
-          prev.map((ev) => (ev._id === data._id ? data : ev))
-        );
-      } else {
-        setEvents([...events, data]);
+      if (!res.ok) {
+        alert(data.error || "Ошибка сохранения события");
+        return;
       }
-      closeModal();
+
+      if (data._id) {
+        if (modalMode === "edit") {
+          setEvents((prev) => prev.map((ev) => (ev._id === data._id ? data : ev)));
+        } else {
+          setEvents((prev) => [...prev, data]);
+        }
+        closeModal();
+      }
+    } catch (err) {
+      console.error("Ошибка сохранения события:", err);
+      alert("Ошибка сохранения события");
     }
   };
 
-  // 🔹 Удаление события
+  // ===========================
+  //   УДАЛЕНИЕ СОБЫТИЯ
+  // ===========================
   const handleDeleteEvent = async (id) => {
     if (!window.confirm("Удалить событие?")) return;
-    await fetch(`http://localhost:5000/api/events/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setEvents((prev) => prev.filter((e) => e._id !== id));
-    closeModal();
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/events/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Ошибка удаления события");
+        return;
+      }
+
+      setEvents((prev) => prev.filter((e) => e._id !== id));
+      setPreviewEvent(null);
+      closeModal();
+    } catch (err) {
+      console.error("Ошибка удаления события:", err);
+      alert("Ошибка удаления события");
+    }
   };
 
-  // 🔹 Открытие модалки
-  const openModal = (mode = "add", event = null) => {
-    setModalMode(mode);
-    if (mode === "edit" && event) {
-      setEditEvent(event);
-      setNewEvent({
-        title: event.title,
-        date: format(parseISO(event.date), "yyyy-MM-dd'T'HH:mm"),
-        duration: event.duration,
-        category: event.category,
-        description: event.description,
-      });
-    } else {
-      setNewEvent({
-        title: "",
-        date: "",
-        duration: 60,
-        category: "arrangement",
-        description: "",
-      });
+  // ===========================
+  //   ПРИГЛАШЕНИЕ НА СОБЫТИЕ
+  // ===========================
+  const handleInviteToEvent = async () => {
+    if (!previewEvent || !previewEvent._id) return;
+    const trimmed = inviteEmail.trim();
+    if (!trimmed) return;
+
+    try {
+      setInviteLoading(true);
+      const res = await fetch(
+        `http://localhost:5000/api/events/${previewEvent._id}/invite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ email: trimmed }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Ошибка приглашения");
+        return;
+      }
+
+      const updatedEvent = data.event || data;
+
+      setEvents((prev) =>
+        prev.map((ev) => (ev._id === updatedEvent._id ? updatedEvent : ev))
+      );
+
+      setPreviewEvent(updatedEvent);
+      setInviteEmail("");
+      alert("Приглашение отправлено!");
+    } catch (err) {
+      console.error("Ошибка приглашения:", err);
+      alert("Ошибка приглашения");
+    } finally {
+      setInviteLoading(false);
     }
-    setShowModal(true);
   };
+
+  // ===========================
+  //   УДАЛЕНИЕ ПРИГЛАШЁННОГО
+  // ===========================
+  const removeInviteUser = async (value, type) => {
+    if (!previewEvent || !previewEvent._id) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/events/${previewEvent._id}/remove-invite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ value, type }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Ошибка удаления приглашённого");
+        return;
+      }
+
+      const updatedEvent = data.event;
+
+      setEvents((prev) =>
+        prev.map((ev) => (ev._id === updatedEvent._id ? updatedEvent : ev))
+      );
+
+      setPreviewEvent(updatedEvent);
+    } catch (err) {
+      console.error("Ошибка удаления приглашённого:", err);
+      alert("Ошибка удаления приглашённого");
+    }
+  };
+
+  // ===========================
+  //   ОТКРЫТИЕ/ЗАКРЫТИЕ МОДАЛКИ
+  // ===========================
+  const openModal = useCallback(
+    (mode = "add", event = null) => {
+      setModalMode(mode);
+
+      if (mode === "edit" && event) {
+        setEditEvent(event);
+
+        const startDate =
+          event.start && !event.date
+            ? new Date(event.start).toISOString().slice(0, 16)
+            : (event.date && new Date(event.date).toISOString().slice(0, 16)) ||
+              "";
+
+        const eventCalendarId =
+          typeof event.calendar === "string"
+            ? event.calendar
+            : event.calendar?._id || selectedCalendar;
+
+        const eventCalendar = calendars.find(
+          (c) => c._id?.toString() === eventCalendarId?.toString()
+        );
+
+        setNewEvent({
+          title: event.title || "",
+          date: startDate,
+          duration: event.duration || 60,
+          category: event.category || "arrangement",
+          description: event.description || "",
+          color:
+            event.color ||
+            eventCalendar?.color ||
+            colorByCategory[event.category] ||
+            "#3b82f6",
+        });
+      } else if (mode === "add" && event && event.start) {
+        const startDate = new Date(event.start).toISOString().slice(0, 16);
+
+        const currentCal = calendars.find(
+          (c) => c._id?.toString() === selectedCalendar?.toString()
+        );
+
+        setNewEvent({
+          title: "",
+          date: startDate,
+          duration: 60,
+          category: "arrangement",
+          description: "",
+          color: currentCal?.color || "#3b82f6",
+        });
+
+        setEditEvent(null);
+      } else {
+        const currentCal = calendars.find(
+          (c) => c._id?.toString() === selectedCalendar?.toString()
+        );
+
+        setEditEvent(null);
+        setNewEvent({
+          title: "",
+          date: "",
+          duration: 60,
+          category: "arrangement",
+          description: "",
+          color: currentCal?.color || "#3b82f6",
+        });
+      }
+
+      setShowModal(true);
+    },
+    [calendars, selectedCalendar]
+  );
 
   const closeModal = () => {
     setShowModal(false);
     setEditEvent(null);
   };
 
+  // ===========================
+  //   LOADING SCREEN
+  // ===========================
   if (loading) {
     return (
-      <div style={styles.loaderWrapper}>
-        <div style={styles.loader}></div>
-        <p>Загрузка календаря...</p>
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: theme.pageBg,
+          color: theme.text,
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: "50%",
+            border: "4px solid rgba(148,163,184,0.4)",
+            borderTopColor: theme.primary,
+            animation: "spin 1s linear infinite",
+          }}
+        />
+        <p style={{ fontSize: 15 }}>Загрузка календаря...</p>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div style={styles.page}>
+    <div style={{ background: theme.pageBg, minHeight: "100vh" }}>
       <Navbar />
 
-      <div style={styles.container}>
-        <div style={styles.header}>
-          <h2>📅 Chronos — Мои календари</h2>
+      {/* === ВАЖНО: менеджер календарей здесь === */}
+      <CalendarManager
+        calendars={calendars}
+        setCalendars={setCalendars}
+        token={token}
+      />
 
-          <div style={styles.filters}>
-            {/* 🗂 Управление календарями */}
-            <CalendarManager
-              calendars={calendars}
-              setCalendars={setCalendars}
-              token={token}
-            />
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          padding: "20px 24px 32px",
+        }}
+      >
+        <CalendarToolbar
+          calendars={calendars}
+          setCalendars={setCalendars}
+          selectedCalendar={selectedCalendar}
+          setSelectedCalendar={setSelectedCalendar}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          categoryFilter={categoryFilter}
+          setCategoryFilter={setCategoryFilter}
+          currentView={currentView}
+          currentDate={currentDate}
+          onNewEventClick={() => openModal("add")}
+          token={token}
+        />
 
-            <select
-              value={selectedCalendar || ""}
-              onChange={(e) => setSelectedCalendar(e.target.value)}
-            >
-              {calendars.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              placeholder="Поиск событий..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="">Все категории</option>
-              <option value="arrangement">Встречи</option>
-              <option value="reminder">Напоминания</option>
-              <option value="task">Задачи</option>
-              <option value="holiday">Праздники</option>
-            </select>
-
-            <button style={styles.addButton} onClick={() => openModal("add")}>
-              ➕ Новое событие
-            </button>
-          </div>
-        </div>
-
-        {/* 🗓️ Календарь */}
-        <div style={styles.calendarWrapper}>
-          <Calendar
-            localizer={localizer}
-            events={filteredEvents.map((e) => {
-              const calendar = calendars.find((c) => c._id === e.calendar);
-              return {
-                ...e,
-                start: new Date(e.date),
-                end: addMinutes(new Date(e.date), e.duration),
-                color: calendar ? calendar.color : colorByCategory[e.category],
-              };
-            })}
-            startAccessor="start"
-            endAccessor="end"
-            view={currentView}
-            date={currentDate}
-            onView={(view) => setCurrentView(view)}
-            onNavigate={(date) => setCurrentDate(date)}
-            views={["month", "week", "day", "agenda"]}
-            popup
-            selectable
-            onSelectEvent={(event) => openModal("edit", event)}
-            style={styles.calendar}
-            eventPropGetter={(event) => ({
-              style: {
-                backgroundColor: event.color || "#64748b",
-                borderRadius: "6px",
-                color: "#fff",
-                border: "none",
-              },
-            })}
-          />
-        </div>
+        <CalendarView
+          events={filteredEvents}
+          calendars={calendars}
+          selectedCalendar={selectedCalendar}
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
+          setPreviewEvent={setPreviewEvent}
+          openModal={openModal}
+          colorByCategory={colorByCategory}
+        />
       </div>
 
-      {/* 🔹 Модальное окно для событий */}
-      {showModal && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3>
-              {modalMode === "edit" ? "✏️ Редактировать событие" : "➕ Добавить"}
-            </h3>
-            <form onSubmit={handleSaveEvent} style={styles.form}>
-              <input
-                type="text"
-                placeholder="Название"
-                value={newEvent.title}
-                onChange={(e) =>
-                  setNewEvent({ ...newEvent, title: e.target.value })
-                }
-                required
-              />
-              <input
-                type="datetime-local"
-                value={newEvent.date}
-                onChange={(e) =>
-                  setNewEvent({ ...newEvent, date: e.target.value })
-                }
-                required
-              />
-              <input
-                type="number"
-                placeholder="Длительность (мин)"
-                value={newEvent.duration}
-                onChange={(e) =>
-                  setNewEvent({
-                    ...newEvent,
-                    duration: Number(e.target.value),
-                  })
-                }
-                required
-              />
-              <select
-                value={newEvent.category}
-                onChange={(e) =>
-                  setNewEvent({ ...newEvent, category: e.target.value })
-                }
-              >
-                <option value="arrangement">Встреча</option>
-                <option value="reminder">Напоминание</option>
-                <option value="task">Задача</option>
-              </select>
-              <textarea
-                placeholder="Описание"
-                value={newEvent.description}
-                onChange={(e) =>
-                  setNewEvent({ ...newEvent, description: e.target.value })
-                }
-              />
-              <div style={styles.modalButtons}>
-                <button type="submit" style={styles.saveBtn}>
-                  💾 Сохранить
-                </button>
-                {modalMode === "edit" && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteEvent(editEvent._id)}
-                    style={styles.deleteBtn}
-                  >
-                    🗑 Удалить
-                  </button>
-                )}
-                <button
-                  type="button"
-                  style={styles.cancelBtn}
-                  onClick={closeModal}
-                >
-                  Отмена
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EventModal
+        isOpen={showModal}
+        mode={modalMode}
+        newEvent={newEvent}
+        setNewEvent={setNewEvent}
+        onClose={closeModal}
+        onSave={handleSaveEvent}
+        onDelete={handleDeleteEvent}
+        editEvent={editEvent}
+      />
+
+      <EventPreview
+        event={previewEvent}
+        onClose={() => setPreviewEvent(null)}
+        onEdit={() => {
+          if (!previewEvent) return;
+          openModal("edit", previewEvent);
+          setPreviewEvent(null);
+        }}
+        onDelete={() => previewEvent && handleDeleteEvent(previewEvent._id)}
+        onDeleteSelf={() => previewEvent && handleDeleteEvent(previewEvent._id)}
+        onInvite={handleInviteToEvent}
+        onRemoveInviteUser={removeInviteUser}
+        inviteEmail={inviteEmail}
+        setInviteEmail={setInviteEmail}
+        inviteLoading={inviteLoading}
+      />
     </div>
   );
 }
-
-// 🎨 Стили
-const styles = {
-  page: { background: "linear-gradient(135deg, #eef2ff, #e0f2fe)", minHeight: "100vh" },
-  container: { padding: "20px 40px" },
-  header: { marginBottom: "15px" },
-  filters: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  addButton: {
-    background: "#3b82f6",
-    color: "white",
-    border: "none",
-    padding: "8px 14px",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  calendarWrapper: {
-    borderRadius: "12px",
-    overflow: "hidden",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-    background: "white",
-  },
-  calendar: { height: 600, padding: "10px" },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.4)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  modal: {
-    background: "white",
-    padding: "30px",
-    borderRadius: "12px",
-    width: "400px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-  },
-  form: { display: "flex", flexDirection: "column", gap: "10px" },
-  modalButtons: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: "10px",
-  },
-  saveBtn: {
-    background: "#3b82f6",
-    color: "white",
-    border: "none",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  deleteBtn: {
-    background: "#ef4444",
-    color: "white",
-    border: "none",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  cancelBtn: {
-    background: "#f3f4f6",
-    border: "none",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  loaderWrapper: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    fontSize: "18px",
-  },
-  loader: {
-    width: "40px",
-    height: "40px",
-    border: "5px solid #ccc",
-    borderTop: "5px solid #3b82f6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-};

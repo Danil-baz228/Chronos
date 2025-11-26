@@ -1,24 +1,59 @@
 import mongoose from "mongoose";
 
-const calendarSchema = new mongoose.Schema(
+const { Schema, model } = mongoose;
+
+const calendarSchema = new Schema(
   {
-    name: { type: String, required: true, default: "My Calendar" },
-    description: { type: String, default: "" },
-    color: { type: String, default: "#3b82f6" },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: "",
+    },
+    color: {
+      type: String,
+      default: "#3b82f6",
+    },
+
+    // 🔥 Владелец календаря
     owner: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    users: [
+
+    // 🔥 Редакторы (могут создавать/редактировать события)
+    editors: [
       {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "User",
       },
     ],
-    isMain: { type: Boolean, default: false },
+
+    // 🔥 Участники (read-only)
+    members: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    // Основной календарь (создаётся автоматически при регистрации)
+    isMain: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Скрыт ли календарь (для кнопки "скрыть")
+    isHidden: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Calendar", calendarSchema);
+export default model("Calendar", calendarSchema);
