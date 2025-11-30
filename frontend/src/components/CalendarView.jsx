@@ -1,4 +1,5 @@
 // src/components/calendar/CalendarView.jsx
+
 import React, { useContext, useMemo } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import {
@@ -34,12 +35,16 @@ export default function CalendarView({
   setPreviewEvent,
   openModal,
   colorByCategory,
+
+  // 🔥 ПРАВА ДОСТУПА
+  canCreateEvents = true,
+  canEditEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
 
-  // ============================
-  //  PREPARE EVENTS
-  // ============================
+  // ===============================
+  //   МЭППИНГ СОБЫТИЙ
+  // ===============================
   const mappedEvents = useMemo(
     () =>
       events.map((e) => {
@@ -74,64 +79,44 @@ export default function CalendarView({
     [events, calendars, colorByCategory, theme.primary]
   );
 
-  // ============================
-  //  GLOBAL CALENDAR STYLING FIX
-  // ============================
-
+  // ===============================
+  //   СТИЛИ ДЛЯ КАЛЕНДАРЯ
+  // ===============================
   const calendarStyles = `
-  /* Remove white backgrounds */
-  .rbc-off-range-bg,
-  .rbc-today,
-  .rbc-month-row,
-  .rbc-day-bg,
-  .rbc-month-view,
-  .rbc-time-view,
-  .rbc-agenda-view,
-  .rbc-row-bg {
-      background: ${theme.name === "light" ? "#ffffff" : "rgba(15,23,42,0.5)"} !important;
-  }
+    .rbc-off-range-bg,
+    .rbc-today,
+    .rbc-month-row,
+    .rbc-day-bg,
+    .rbc-month-view,
+    .rbc-time-view,
+    .rbc-agenda-view,
+    .rbc-row-bg {
+        background: ${
+          theme.name === "light"
+            ? "#ffffff"
+            : "rgba(15,23,42,0.5)"
+        } !important;
+    }
 
-  /* Border color */
-  .rbc-day-bg,
-  .rbc-time-slot,
-  .rbc-month-row,
-  .rbc-header,
-  .rbc-agenda-table,
-  .rbc-timeslot-group {
-      border-color: rgba(255,255,255,0.12) !important;
-  }
+    .rbc-date-cell {
+        color: ${
+          theme.name === "light" ? "#0f172a" : "#ffffff"
+        } !important;
+        font-weight: 500;
+    }
 
-  /* Day numbers */
-  .rbc-date-cell {
-      color: ${theme.name === "light" ? "#0f172a" : "#ffffff"} !important;
-      font-weight: 500;
-  }
-
-  /* Today highlight */
-  .rbc-today {
-      background: ${
-        theme.name === "light"
-          ? "rgba(37,99,235,0.1)"
-          : "rgba(96,165,250,0.12)"
-      } !important;
-  }
-  .rbc-today .rbc-date-cell {
-      color: ${
-        theme.name === "light" ? theme.primary : theme.primary
-      } !important;
-      font-weight: 700;
-  }
-
-  /* Selected slot */
-  .rbc-selected-cell {
-      background: ${
-        theme.name === "light"
-          ? "rgba(37,99,235,0.15)"
-          : "rgba(96,165,250,0.15)"
-      } !important;
-  }
+    .rbc-today {
+        background: ${
+          theme.name === "light"
+            ? "rgba(37,99,235,0.1)"
+            : "rgba(96,165,250,0.15)"
+        } !important;
+    }
   `;
 
+  // ===============================
+  //   РЕНДЕР КОМПОНЕНТА
+  // ===============================
   return (
     <div
       style={{
@@ -146,27 +131,54 @@ export default function CalendarView({
         backdropFilter: `blur(${theme.blur})`,
       }}
     >
-      {/* Inject styles */}
       <style>{calendarStyles}</style>
 
       <Calendar
         localizer={localizer}
-        selectable
+        selectable={canCreateEvents} // viewer не может выделять слот
         events={mappedEvents}
         startAccessor="start"
         endAccessor="end"
         view={currentView}
         date={currentDate}
-        onView={(view) => setCurrentView(view)}
-        onNavigate={(date) => setCurrentDate(date)}
+        onView={setCurrentView}
+        onNavigate={setCurrentDate}
         views={["month", "week", "day", "agenda"]}
         popup
-        onSelectSlot={(slot) => openModal("add", { start: slot.start })}
-        onSelectEvent={(event) => setPreviewEvent(event)}
-        style={{
-          height: 620,
-          padding: 10,
+        style={{ height: 620, padding: 10 }}
+
+        // ============================
+        //   Создание события
+        // ============================
+        onSelectSlot={
+          canCreateEvents
+            ? (slot) => openModal("add", { start: slot.start })
+            : undefined
+        }
+
+        // ============================
+        //   Нажатие на событие
+        // ============================
+        onSelectEvent={(event) => {
+          // holiday → всегда read-only
+          if (event.category === "holiday") {
+            setPreviewEvent(event);
+            return;
+          }
+
+          // member → только preview
+          if (!canEditEvents) {
+            setPreviewEvent(event);
+            return;
+          }
+
+          // owner/editor → редактирование
+          openModal("edit", event);
         }}
+
+        // ============================
+        //   Стили самих событий
+        // ============================
         eventPropGetter={(event) => ({
           style: {
             background:

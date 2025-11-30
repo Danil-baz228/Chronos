@@ -1,6 +1,6 @@
 // src/components/calendar/EventModal.jsx
-import React, { useContext } from "react";
 
+import React, { useContext } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
 
@@ -13,11 +13,16 @@ export default function EventModal({
   onSave,
   onDelete,
   editEvent,
+
+  // 🔥 добавляем права
+  canEditEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
 
   if (!isOpen) return null;
+
+  const readOnly = !canEditEvents || newEvent.category === "holiday";
 
   return (
     <div
@@ -60,71 +65,83 @@ export default function EventModal({
         </h3>
 
         <form
-          onSubmit={onSave}
+          onSubmit={readOnly ? (e) => e.preventDefault() : onSave}
           style={{
             display: "flex",
             flexDirection: "column",
             gap: 10,
           }}
         >
+          {/* ------------------ Название ------------------ */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.name")}</span>
             <input
               type="text"
               value={newEvent.title}
               onChange={(e) =>
+                !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
                   title: e.target.value,
                 }))
               }
+              disabled={readOnly}
               required
               style={inputStyle(theme)}
             />
           </label>
 
+          {/* ------------------ Дата/время ------------------ */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.datetime")}</span>
             <input
               type="datetime-local"
               value={newEvent.date}
               onChange={(e) =>
+                !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
                   date: e.target.value,
                 }))
               }
+              disabled={readOnly}
               required
               style={inputStyle(theme)}
             />
           </label>
 
+          {/* ------------------ Duration ------------------ */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.duration")}</span>
             <input
               type="number"
               value={newEvent.duration}
               onChange={(e) =>
+                !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
                   duration: Number(e.target.value),
                 }))
               }
+              disabled={readOnly}
               required
               style={inputStyle(theme)}
             />
           </label>
 
+          {/* ------------------ Category ------------------ */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.category")}</span>
             <select
               value={newEvent.category}
               onChange={(e) =>
+                !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
                   category: e.target.value,
                 }))
               }
+              disabled={readOnly}
               style={inputStyle(theme)}
             >
               <option value="arrangement">
@@ -133,42 +150,46 @@ export default function EventModal({
               <option value="reminder">
                 {t("category.reminder")}
               </option>
-              <option value="task">
-                {t("category.task")}
-              </option>
+              <option value="task">{t("category.task")}</option>
             </select>
           </label>
 
+          {/* ------------------ Color ------------------ */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.color")}</span>
             <input
               type="color"
               value={newEvent.color || "#3b82f6"}
               onChange={(e) =>
+                !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
                   color: e.target.value,
                 }))
               }
+              disabled={readOnly}
               style={{
                 ...inputStyle(theme),
                 padding: 0,
                 height: 32,
-                cursor: "pointer",
+                cursor: readOnly ? "not-allowed" : "pointer",
               }}
             />
           </label>
 
+          {/* ------------------ Description ------------------ */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.description")}</span>
             <textarea
               value={newEvent.description}
               onChange={(e) =>
+                !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
                   description: e.target.value,
                 }))
               }
+              disabled={readOnly}
               rows={3}
               style={{
                 ...inputStyle(theme),
@@ -177,6 +198,9 @@ export default function EventModal({
             />
           </label>
 
+          {/* -------------------------------------------------- */}
+          {/*                   КНОПКИ УПРАВЛЕНИЯ              */}
+          {/* -------------------------------------------------- */}
           <div
             style={{
               display: "flex",
@@ -185,23 +209,27 @@ export default function EventModal({
               gap: 8,
             }}
           >
-            <button
-              type="submit"
-              style={{
-                flex: 1,
-                borderRadius: 999,
-                border: "none",
-                padding: "8px 14px",
-                background: theme.primary,
-                color: "#ffffff",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {t("modal.save")}
-            </button>
+            {/* Save */}
+            {!readOnly && (
+              <button
+                type="submit"
+                style={{
+                  flex: 1,
+                  borderRadius: 999,
+                  border: "none",
+                  padding: "8px 14px",
+                  background: theme.primary,
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {t("modal.save")}
+              </button>
+            )}
 
-            {mode === "edit" && editEvent && (
+            {/* Delete only if editing + allowed */}
+            {!readOnly && mode === "edit" && editEvent && (
               <button
                 type="button"
                 onClick={() => onDelete(editEvent._id)}
@@ -220,6 +248,7 @@ export default function EventModal({
               </button>
             )}
 
+            {/* Close */}
             <button
               type="button"
               onClick={onClose}

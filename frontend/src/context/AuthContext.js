@@ -1,17 +1,21 @@
+// src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from "react";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // <-- ДОБАВИЛИ
 
   useEffect(() => {
-    // при запуске проверяем, есть ли токен
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
+
     if (token && storedUser) {
       setUser(JSON.parse(storedUser));
     }
+
+    setLoading(false); // <-- ОЧЕНЬ ВАЖНО
   }, []);
 
   const login = (userData, token) => {
@@ -27,8 +31,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export default AuthProvider;

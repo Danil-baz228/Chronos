@@ -1,13 +1,16 @@
+// backend/src/utils/getHolidays.js
+
+// Кеш по ключу "страна-год"
 let cache = {
-  data: null,
-  expires: 0,
+  // "UA-2025": { data: [...], expires: timestamp }
 };
 
-export async function getHolidays(country = "UA") {
-  const year = new Date().getFullYear();
+export async function getHolidays(country = "UA", year = new Date().getFullYear()) {
+  const key = `${country}-${year}`;
 
-  if (cache.data && cache.expires > Date.now()) {
-    return cache.data;
+  // Проверяем кеш
+  if (cache[key] && cache[key].expires > Date.now()) {
+    return cache[key].data;
   }
 
   try {
@@ -15,16 +18,16 @@ export async function getHolidays(country = "UA") {
     const res = await fetch(url);
     const holidays = await res.json();
 
-    const formatted = holidays.map(h => ({
+    const formatted = holidays.map((h) => ({
       title: h.localName,
-      date: h.date + "T00:00:00",   // ⬅ начинаем день
+      date: h.date + "T00:00:00", // начало дня
       category: "holiday",
-      allDay: true                  // ⬅ главное поле!
+      allDay: true,
     }));
 
-    cache = {
+    cache[key] = {
       data: formatted,
-      expires: Date.now() + 24 * 60 * 60 * 1000,
+      expires: Date.now() + 24 * 60 * 60 * 1000, // кеш на 24 часа
     };
 
     return formatted;

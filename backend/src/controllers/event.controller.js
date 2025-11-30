@@ -48,7 +48,9 @@ export const getEvents = async (req, res) => {
       .populate("creator", "name fullName email");
 
     const copies = new Set(
-      calendarEvents.filter((e) => e.invitedFrom).map((e) => e.invitedFrom.toString())
+      calendarEvents
+        .filter((e) => e.invitedFrom)
+        .map((e) => e.invitedFrom.toString())
     );
 
     const filteredInvited = invitedEvents.filter(
@@ -75,6 +77,13 @@ export const createEvent = async (req, res) => {
     const calendar = await Calendar.findById(req.body.calendar);
     if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
 
+    // Календарь праздников — только просмотр
+    if (calendar.isHolidayCalendar) {
+      return res
+        .status(403)
+        .json({ error: "Нельзя создавать события в календаре праздников" });
+    }
+
     const userId = req.user._id;
     const isOwner = isSameId(calendar.owner, userId);
     const isEditor = userInArray(userId, calendar.editors);
@@ -86,6 +95,7 @@ export const createEvent = async (req, res) => {
       ...req.body,
       creator: userId,
       invitedFrom: null,
+      readOnly: false,
     });
 
     res.status(201).json(event);
@@ -102,6 +112,13 @@ export const updateEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ error: "Событие не найдено" });
+
+    // Праздники и readOnly-события не редактируются
+    if (event.category === "holiday" || event.readOnly) {
+      return res
+        .status(403)
+        .json({ error: "Праздничные события нельзя редактировать" });
+    }
 
     // Копия не редактируется
     if (event.invitedFrom)
@@ -148,6 +165,13 @@ export const deleteEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ error: "Событие не найдено" });
+
+    // Праздники и readOnly не удаляются
+    if (event.category === "holiday" || event.readOnly) {
+      return res
+        .status(403)
+        .json({ error: "Праздничные события нельзя удалить" });
+    }
 
     const userId = req.user._id;
 
@@ -262,9 +286,11 @@ export const inviteToEvent = async (req, res) => {
 
     await event.save();
 
-    res.json(await Event.findById(event._id)
-      .populate("invitedUsers", "name fullName email")
-      .populate("creator", "name fullName email"));
+    res.json(
+      await Event.findById(event._id)
+        .populate("invitedUsers", "name fullName email")
+        .populate("creator", "name fullName email")
+    );
   } catch (err) {
     console.error("Ошибка приглашения:", err);
     res.status(500).json({ error: "Ошибка приглашения" });
@@ -317,23 +343,31 @@ export const removeInvite = async (req, res) => {
 
     return res.json({
       success: true,
-      event: populated,   // ← ВСЕГДА возвращаем event
+      event: populated,
     });
-
   } catch (err) {
     console.error("Ошибка removeInvite:", err);
     return res.status(500).json({ error: "Ошибка удаления приглашённого" });
   }
 };
 
-
 // =====================================
-//   ПРАЗДНИКИ
+//   ПРАЗДНИКИ (по году)
+//   GET /api/events/holidays?year=2026
 // =====================================
 export const getHolidaysController = async (req, res) => {
   try {
-    res.json(await getHolidays("UA"));
+    const yearParam = req.query.year;
+    const year = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
+
+    if (Number.isNaN(year)) {
+      return res.status(400).json({ error: "Некорректный год" });
+    }
+
+    const holidays = await getHolidays("UA", year);
+    res.json(holidays);
   } catch (e) {
+    console.error("Ошибка getHolidaysController:", e);
     res.status(500).json({ error: "Не удалось загрузить праздники" });
   }
 };

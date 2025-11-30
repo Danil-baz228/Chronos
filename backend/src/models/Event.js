@@ -65,6 +65,12 @@ const eventSchema = new Schema(
 
     // ✉️ приглашенные по email (может не быть аккаунта)
     invitedEmails: [{ type: String }],
+
+    // 🔒 read-only событие (нельзя редактировать/удалять на бэке)
+    readOnly: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

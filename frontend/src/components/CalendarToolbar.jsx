@@ -1,3 +1,5 @@
+// src/components/calendar/CalendarToolbar.jsx
+
 import React, { useContext } from "react";
 import { getISOWeek } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
@@ -13,24 +15,28 @@ export default function CalendarToolbar({
   categoryFilter,
   setCategoryFilter,
   currentView,
+  setCurrentView,
   currentDate,
   onNewEventClick,
 
-  // 🔥 ДВА НОВІ ПРОПСИ
+  // кнопки керування календарями (если будут использоваться)
   onOpenManager,
   onToggleHidden,
   hiddenCount,
 
   token,
+
+  // 🔥 ГОЛОВНЕ — чи можна створювати події
+  canCreateEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
 
   return (
     <div style={{ marginBottom: 16 }}>
-      {/* =============================== */}
-      {/*        Title + 2 fixed buttons  */}
-      {/* =============================== */}
+      {/* ================================================== */}
+      {/*               Заголовок + кнопка створення        */}
+      {/* ================================================== */}
       <div
         style={{
           display: "flex",
@@ -62,36 +68,36 @@ export default function CalendarToolbar({
               {t("calendar.weekLabel")}: {getISOWeek(currentDate)}
             </div>
           )}
-
-          
         </div>
 
-        {/* КНОПКА "+ НОВЕ ПОДІЯ" */}
-        <button
-          onClick={onNewEventClick}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "9px 16px",
-            borderRadius: 999,
-            border: "none",
-            cursor: "pointer",
-            background: `radial-gradient(circle at 0 0, ${theme.primary}, ${theme.primarySoft})`,
-            color: theme.text,
-            fontSize: 14,
-            fontWeight: 600,
-            boxShadow: theme.cardShadow,
-          }}
-        >
-          <span style={{ fontSize: 20 }}>＋</span>
-          {t("toolbar.newEvent")}
-        </button>
+        {/* 🔥 Кнопка "+ Нова подія" — только если есть права */}
+        {canCreateEvents && (
+          <button
+            onClick={onNewEventClick}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "9px 16px",
+              borderRadius: 999,
+              border: "none",
+              cursor: "pointer",
+              background: `radial-gradient(circle at 0 0, ${theme.primary}, ${theme.primarySoft})`,
+              color: theme.text,
+              fontSize: 14,
+              fontWeight: 600,
+              boxShadow: theme.cardShadow,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>＋</span>
+            {t("toolbar.newEvent")}
+          </button>
+        )}
       </div>
 
-      {/* =============================== */}
-      {/*             ФІЛЬТРИ            */}
-      {/* =============================== */}
+      {/* ================================================== */}
+      {/*                       Фільтри                     */}
+      {/* ================================================== */}
       <div
         style={{
           padding: 12,
@@ -168,18 +174,16 @@ export default function CalendarToolbar({
             }}
           >
             <option value="">{t("toolbar.allCategories")}</option>
-            <option value="arrangement">
-              {t("category.arrangement")}
-            </option>
+            <option value="arrangement">{t("category.arrangement")}</option>
             <option value="reminder">{t("category.reminder")}</option>
             <option value="task">{t("category.task")}</option>
             <option value="holiday">{t("category.holiday")}</option>
           </select>
         </div>
 
-        {/* =========================== */}
-        {/*   Перемикач виду (M/W/D/A)  */}
-        {/* =========================== */}
+        {/* ================================================== */}
+        {/*       Перемикач режимів (Month / Week / Day)      */}
+        {/* ================================================== */}
         <div
           style={{
             display: "flex",
@@ -201,7 +205,7 @@ export default function CalendarToolbar({
           ].map((v) => (
             <button
               key={v.key}
-              onClick={() => currentView !== v.key && v.key}
+              onClick={() => setCurrentView(v.key)}
               style={{
                 padding: "5px 10px",
                 borderRadius: 999,
@@ -210,9 +214,7 @@ export default function CalendarToolbar({
                 fontSize: 11,
                 fontWeight: 600,
                 color:
-                  currentView === v.key
-                    ? theme.text
-                    : theme.textMuted,
+                  currentView === v.key ? theme.text : theme.textMuted,
                 background:
                   currentView === v.key
                     ? theme.primarySoft

@@ -6,37 +6,45 @@ import {
   deleteCalendar,
   hideCalendar,
   showCalendar,
-  addEditor,
-  removeEditor,
-  addMember,
-  removeMember,
   inviteUser,
+  updateMemberRole,
+  removeCalendarMember
 } from "../controllers/calendar.controller.js";
 
 import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = express.Router();
 
+// Все маршруты защищены
 router.use(requireAuth);
 
+// =========================
+// CALENDAR CRUD
+// =========================
 router.get("/", getCalendars);
 router.post("/", createCalendar);
 router.put("/:id", updateCalendar);
 router.delete("/:id", deleteCalendar);
 
-// скрыть / показать календарь
+// =========================
+// Hide / Show
+// =========================
 router.put("/:id/hide", hideCalendar);
 router.put("/:id/show", showCalendar);
 
-// приглашение пользователя
+// =========================
+// Invite user
+// =========================
 router.post("/:id/invite", inviteUser);
 
-// редакторы
-router.post("/:id/add-editor", addEditor);
-router.post("/:id/remove-editor", removeEditor);
+// =========================
+// Members & Roles
+// =========================
 
-// участники
-router.post("/:id/add-member", addMember);
-router.post("/:id/remove-member", removeMember);
+// изменить роль (member/editor)
+router.post("/:id/members/update", updateMemberRole);
+
+// удалить участника или редактора
+router.post("/:id/members/remove", removeCalendarMember);
 
 export default router;

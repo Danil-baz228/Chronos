@@ -8,6 +8,8 @@ export default function Navbar() {
   const { lang, setLang } = useContext(LanguageContext);
   const { t } = useTranslation();
 
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const navStyle = {
     position: "sticky",
     top: 0,
@@ -28,6 +30,16 @@ export default function Navbar() {
     fontSize: 12,
     cursor: "pointer",
     background: "transparent",
+  };
+
+  const handleProfileClick = () => {
+    window.location.href = "/profile";
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.location.href = "/login";
   };
 
   return (
@@ -95,7 +107,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* SWITCHERS */}
+        {/* SWITCHERS + PROFILE / LOGOUT */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {/* Theme Switcher */}
           <div
@@ -186,6 +198,39 @@ export default function Navbar() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Profile + Logout */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={handleProfileClick}
+              style={{
+                ...pillBase,
+                padding: "6px 14px",
+                background: theme.primarySoft,
+                borderColor: theme.primary,
+                color: theme.text,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              👤 {user?.fullName || "Профіль"}
+            </button>
+
+            <button
+              onClick={handleLogout}
+              style={{
+                ...pillBase,
+                padding: "6px 14px",
+                background: "#ef4444",
+                borderColor: "#ef4444",
+                color: "white",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              🚪 Вийти
+            </button>
           </div>
         </div>
       </div>

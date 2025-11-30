@@ -1,26 +1,23 @@
 // backend/src/services/auth.service.js
 import User from "../models/User.js";
 import Calendar from "../models/Calendar.js";
-
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/generateToken.js";
+import { createHolidayCalendar } from "./calendar.service.js";
 
 export const registerUser = async ({ name, email, password }) => {
-  // Проверка email
   const exists = await User.findOne({ email });
   if (exists) throw new Error("Email already exists");
 
-  // Хешируем пароль
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Создаём пользователя
   const user = await User.create({
     name,
     email,
     password: hashedPassword,
   });
 
-  // Создаём главный календарь
+  // 1. Главный календарь
   await Calendar.create({
     name: "Main Calendar",
     description: "Default calendar",
@@ -32,10 +29,19 @@ export const registerUser = async ({ name, email, password }) => {
     isHidden: false,
   });
 
-  // Генерируем токен
+  // 2. Календарь праздников (UA, текущий год)
+  await createHolidayCalendar(user._id, "UA");
+
   const token = generateToken(user._id);
 
-  return { user, token };
+  return {
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+    },
+    token,
+  };
 };
 
 export const loginUser = async ({ email, password }) => {
@@ -46,5 +52,13 @@ export const loginUser = async ({ email, password }) => {
   if (!isMatch) throw new Error("Invalid credentials");
 
   const token = generateToken(user._id);
-  return { user, token };
+
+  return {
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+    },
+    token,
+  };
 };

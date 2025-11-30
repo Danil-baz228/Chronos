@@ -1,3 +1,4 @@
+// backend/src/models/Calendar.js
 import mongoose from "mongoose";
 
 const { Schema, model } = mongoose;
@@ -51,6 +52,18 @@ const calendarSchema = new Schema(
     isHidden: {
       type: Boolean,
       default: false,
+    },
+
+    // Календарь праздников (read-only)
+    isHolidayCalendar: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Год, для которого этот календарь праздников
+    holidayYear: {
+      type: Number,
+      default: null,
     },
   },
   { timestamps: true }

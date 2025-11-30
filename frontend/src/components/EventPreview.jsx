@@ -1,4 +1,5 @@
 // src/components/calendar/EventPreview.jsx
+
 import React, { useContext } from "react";
 import { format } from "date-fns";
 
@@ -16,13 +17,20 @@ export default function EventPreview({
   inviteEmail,
   setInviteEmail,
   inviteLoading,
+
+  // 🔥 owner/editor = true, member/holiday = false
+  canManage = true,
 }) {
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
 
   if (!event) return null;
 
+  const isHoliday = event.category === "holiday";
   const isGuest = Boolean(event.invitedFrom);
+
+  // guest может удалить ТОЛЬКО себя
+  const canGuestLeave = isGuest && !canManage;
 
   return (
     <div
@@ -49,6 +57,7 @@ export default function EventPreview({
           backdropFilter: `blur(${theme.blur})`,
         }}
       >
+        {/* HEADER */}
         <div
           style={{
             display: "flex",
@@ -57,15 +66,10 @@ export default function EventPreview({
             marginBottom: 8,
           }}
         >
-          <h4
-            style={{
-              margin: 0,
-              fontSize: 16,
-              fontWeight: 600,
-            }}
-          >
+          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
             {event.title}
           </h4>
+
           <button
             onClick={onClose}
             style={{
@@ -80,6 +84,7 @@ export default function EventPreview({
           </button>
         </div>
 
+        {/* DATE */}
         <Row icon="📅" theme={theme}>
           {format(
             event.start ? new Date(event.start) : new Date(),
@@ -87,136 +92,110 @@ export default function EventPreview({
           )}
         </Row>
 
+        {/* CATEGORY */}
         <Row icon="📂" theme={theme}>
           {event.category}
         </Row>
 
-        {event.invitedFrom && event.creator && (
-          <Row icon="📨" theme={theme}>
-            {t("preview.invitedBy")}{" "}
-            {event.creator.fullName ||
-              event.creator.name ||
-              event.creator.email}
-          </Row>
-        )}
-
+        {/* DESCRIPTION */}
         {event.description && (
           <Row icon="📝" theme={theme}>
             {event.description}
           </Row>
         )}
 
-        {(event.invitedUsers?.length > 0 ||
-          event.invitedEmails?.length > 0) && (
-          <div style={{ marginTop: 10 }}>
-            <Row icon="👥" theme={theme}>
-              {t("preview.invited")}
-            </Row>
+        {/* ---------------------------------------------- */}
+        {/*              INVITED USERS LIST                */}
+        {/* ---------------------------------------------- */}
+        {!isHoliday &&
+          (event.invitedUsers?.length > 0 ||
+            event.invitedEmails?.length > 0) && (
+            <div style={{ marginTop: 10 }}>
+              <Row icon="👥" theme={theme}>
+                {t("preview.invited")}
+              </Row>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                marginTop: 4,
-              }}
-            >
-              {event.invitedUsers?.map((u, idx) => {
-                const name =
-                  u.name || u.fullName || u.email || "User";
-                const email = u.email || "";
-                const initials = name
-                  .trim()
-                  .split(" ")
-                  .map((p) => p[0]?.toUpperCase())
-                  .slice(0, 2)
-                  .join("");
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  marginTop: 4,
+                }}
+              >
+                {/* USERS */}
+                {event.invitedUsers?.map((u, idx) => {
+                  const name = u.name || u.fullName || u.email || "User";
+                  const initials = name
+                    .trim()
+                    .split(" ")
+                    .map((p) => p[0]?.toUpperCase())
+                    .slice(0, 2)
+                    .join("");
 
-                return (
-                  <div
-                    key={u._id || idx}
-                    style={invitedChipStyle(theme)}
-                  >
-                    <div style={avatarStyle(theme)}>
-                      {initials || "?"}
-                    </div>
+                  return (
                     <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
+                      key={u._id || idx}
+                      style={invitedChipStyle(theme)}
                     >
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {name}
-                      </div>
-                      {email && (
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: theme.textMuted,
-                          }}
-                        >
-                          {email}
+                      <div style={avatarStyle(theme)}>{initials}</div>
+
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>
+                          {name}
                         </div>
+                        {u.email && (
+                          <div style={{ fontSize: 12, color: theme.textMuted }}>
+                            {u.email}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ❌ удалять может только owner/editor */}
+                      {canManage && (
+                        <button
+                          onClick={() => onRemoveInviteUser(u._id, "user")}
+                          style={removeBtnStyle(theme)}
+                        >
+                          ❌
+                        </button>
                       )}
                     </div>
-                    <button
-                      onClick={() => onRemoveInviteUser(u._id, "user")}
-                      style={removeBtnStyle(theme)}
-                    >
-                      ❌
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
-              {event.invitedEmails?.map((mail, idx) => (
-                <div
-                  key={mail + idx}
-                  style={invitedChipStyle(theme)}
-                >
-                  <div style={avatarStyle(theme)}>@</div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {mail}
+                {/* EMAIL INVITES */}
+                {event.invitedEmails?.map((mail, idx) => (
+                  <div key={idx} style={invitedChipStyle(theme)}>
+                    <div style={avatarStyle(theme)}>@</div>
+
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {mail}
+                      </div>
+                      <div style={{ fontSize: 12, color: theme.textMuted }}>
+                        (email)
+                      </div>
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: theme.textMuted,
-                      }}
-                    >
-                      (email)
-                    </div>
+
+                    {canManage && (
+                      <button
+                        onClick={() => onRemoveInviteUser(mail, "email")}
+                        style={removeBtnStyle(theme)}
+                      >
+                        ❌
+                      </button>
+                    )}
                   </div>
-                  <button
-                    onClick={() => onRemoveInviteUser(mail, "email")}
-                    style={removeBtnStyle(theme)}
-                  >
-                    ❌
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {event.category !== "holiday" && event._id && !isGuest && (
+        {/* ---------------------------------------------- */}
+        {/*            INVITE FIELD (owner/editor)          */}
+        {/* ---------------------------------------------- */}
+        {!isHoliday && !isGuest && canManage && (
           <div
             style={{
               marginTop: 12,
@@ -233,6 +212,7 @@ export default function EventPreview({
             >
               {t("preview.inviteTitle")}
             </div>
+
             <div
               style={{
                 display: "flex",
@@ -249,13 +229,13 @@ export default function EventPreview({
                   flex: 1,
                   padding: "6px 8px",
                   borderRadius: 999,
-                  border:
-                    "1px solid rgba(148,163,184,0.7)",
+                  border: "1px solid rgba(148,163,184,0.7)",
                   background: theme.inputBg,
                   color: theme.text,
                   fontSize: 13,
                 }}
               />
+
               <button
                 onClick={onInvite}
                 disabled={inviteLoading}
@@ -264,7 +244,7 @@ export default function EventPreview({
                   borderRadius: 999,
                   border: "none",
                   background: theme.primary,
-                  color: "#ffffff",
+                  color: "#fff",
                   fontSize: 13,
                   fontWeight: 500,
                   cursor: "pointer",
@@ -277,6 +257,9 @@ export default function EventPreview({
           </div>
         )}
 
+        {/* ---------------------------------------------- */}
+        {/*               ACTION BUTTONS                   */}
+        {/* ---------------------------------------------- */}
         <div
           style={{
             display: "flex",
@@ -285,7 +268,8 @@ export default function EventPreview({
             gap: 8,
           }}
         >
-          {!isGuest && (
+          {/* owner/editor */}
+          {!isHoliday && !isGuest && canManage && (
             <>
               <button
                 onClick={onEdit}
@@ -302,6 +286,7 @@ export default function EventPreview({
               >
                 {t("preview.edit")}
               </button>
+
               <button
                 onClick={onDelete}
                 style={{
@@ -310,7 +295,7 @@ export default function EventPreview({
                   border: "none",
                   padding: "8px 12px",
                   background: theme.danger,
-                  color: "#ffffff",
+                  color: "#fff",
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
@@ -320,7 +305,8 @@ export default function EventPreview({
             </>
           )}
 
-          {isGuest && (
+          {/* guest → может выйти из события */}
+          {canGuestLeave && (
             <button
               onClick={onDeleteSelf}
               style={{
@@ -329,7 +315,7 @@ export default function EventPreview({
                 border: "none",
                 padding: "8px 12px",
                 background: theme.danger,
-                color: "#ffffff",
+                color: "#fff",
                 fontWeight: 600,
                 cursor: "pointer",
               }}
@@ -352,7 +338,6 @@ function Row({ icon, children, theme }) {
         gap: 6,
         fontSize: 14,
         marginTop: 4,
-        color: theme.text,
       }}
     >
       <span style={{ width: 20, textAlign: "center" }}>{icon}</span>
