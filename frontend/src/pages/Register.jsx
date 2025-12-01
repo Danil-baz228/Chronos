@@ -2,6 +2,7 @@ import React, { useState, useContext } from "react";
 import { register as registerAPI } from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { ThemeContext } from "../context/ThemeContext";
+import { useTranslation } from "../context/LanguageContext";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
@@ -17,13 +18,14 @@ export default function Register() {
 
   const { login } = useContext(AuthContext);
   const { theme } = useContext(ThemeContext);
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (form.password !== form.confirm) {
-      setMessage("Паролі не співпадають");
+      setMessage(t("register.passwordMismatch"));
       return;
     }
 
@@ -38,7 +40,7 @@ export default function Register() {
       login(res.user, res.token);
       navigate("/calendar");
     } else {
-      setMessage(res.error || "Помилка реєстрації");
+      setMessage(res.error || t("register.error"));
     }
   };
 
@@ -46,12 +48,15 @@ export default function Register() {
     <div style={wrapper(theme)}>
       <div style={card(theme)}>
         <h2 style={{ textAlign: "center", color: theme.text }}>
-          📝 Реєстрація
+          {t("register.title")}
         </h2>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        >
           <input
-            placeholder="Логін (нік)"
+            placeholder={t("register.username")}
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
             required
@@ -59,7 +64,7 @@ export default function Register() {
           />
 
           <input
-            placeholder="Повне ім'я"
+            placeholder={t("register.fullName")}
             value={form.fullName}
             onChange={(e) => setForm({ ...form, fullName: e.target.value })}
             required
@@ -68,7 +73,7 @@ export default function Register() {
 
           <input
             type="email"
-            placeholder="Email"
+            placeholder={t("register.email")}
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
@@ -77,7 +82,7 @@ export default function Register() {
 
           <input
             type="password"
-            placeholder="Пароль"
+            placeholder={t("register.password")}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
@@ -86,7 +91,7 @@ export default function Register() {
 
           <input
             type="password"
-            placeholder="Підтвердити пароль"
+            placeholder={t("register.confirm")}
             value={form.confirm}
             onChange={(e) => setForm({ ...form, confirm: e.target.value })}
             required
@@ -94,7 +99,7 @@ export default function Register() {
           />
 
           <button type="submit" style={btn(theme)}>
-            Зареєструватися
+            {t("register.submit")}
           </button>
         </form>
 
@@ -106,7 +111,7 @@ export default function Register() {
 
         <div style={{ textAlign: "center", marginTop: 16 }}>
           <Link to="/" style={{ color: theme.primary }}>
-            Вже є акаунт? Увійти
+            {t("register.haveAccount")}
           </Link>
         </div>
       </div>

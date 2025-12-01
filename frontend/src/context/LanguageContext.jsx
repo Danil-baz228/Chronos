@@ -1,5 +1,10 @@
-// src/context/LanguageContext.jsx
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useEffect,
+} from "react";
 
 export const LanguageContext = createContext();
 
@@ -45,7 +50,24 @@ const translations = {
     "navbar.calendar": "Календар",
     "navbar.tasks": "Задачі",
     "navbar.analytics": "Аналітика",
+    "login.title": "🔐 Вхід",
+    "login.email": "Email або логін",
+    "login.password": "Пароль",
+    "login.submit": "Увійти",
+    "login.noAccount": "Немає акаунта? Зареєструватися",
+    "register.title": "📝 Реєстрація",
+    "register.username": "Логін (нік)",
+    "register.fullName": "Повне ім'я",
+    "register.email": "Email",
+    "register.password": "Пароль",
+    "register.confirm": "Підтвердити пароль",
+    "register.submit": "Зареєструватися",
+    "register.haveAccount": "Вже є акаунт? Увійти",
+    "register.passwordMismatch": "Паролі не співпадають",
+    "register.error": "Помилка реєстрації",
+
   },
+
   en: {
     "calendar.title": "📅 Chronos — My calendars",
     "calendar.loading": "Loading calendar...",
@@ -87,11 +109,43 @@ const translations = {
     "navbar.calendar": "Calendar",
     "navbar.tasks": "Tasks",
     "navbar.analytics": "Analytics",
+    "login.title": "🔐 Login",
+    "login.email": "Email or username",
+    "login.password": "Password",
+    "login.submit": "Login",
+    "login.noAccount": "No account? Register",
+    "register.title": "📝 Registration",
+    "register.username": "Username",
+    "register.fullName": "Full name",
+    "register.email": "Email",
+    "register.password": "Password",
+    "register.confirm": "Confirm password",
+    "register.submit": "Register",
+    "register.haveAccount": "Already have an account? Login",
+    "register.passwordMismatch": "Passwords do not match",
+    "register.error": "Registration error",
+
   },
 };
-
 export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState("uk");
+  const [lang, setLang] = useState(() => {
+    return localStorage.getItem("lang") || "uk";
+  });
+
+  // save language
+  useEffect(() => {
+    localStorage.setItem("lang", lang);
+  }, [lang]);
+
+  // toggle via event
+  useEffect(() => {
+    const handler = () => {
+      setLang((prev) => (prev === "uk" ? "en" : "uk"));
+    };
+
+    window.addEventListener("toggle_language", handler);
+    return () => window.removeEventListener("toggle_language", handler);
+  }, []);
 
   const value = useMemo(
     () => ({

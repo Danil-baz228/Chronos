@@ -1,7 +1,9 @@
 import React, { useState, useContext } from "react";
 import { login as loginAPI } from "../services/api";
 import { AuthContext } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { ThemeContext } from "../context/ThemeContext";
+import { useTranslation } from "../context/LanguageContext";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -10,7 +12,10 @@ export default function Login() {
   });
 
   const [message, setMessage] = useState("");
+
   const { login } = useContext(AuthContext);
+  const { theme } = useContext(ThemeContext);
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -27,60 +32,96 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.card}>
-        <h2>Вхід</h2>
+    <div style={wrapper(theme)}>
+      <div style={card(theme)}>
+        <h2 style={{ textAlign: "center", color: theme.text }}>
+          {t("login.title")}
+        </h2>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        >
           <input
-            placeholder="Email або логін"
+            placeholder={t("login.email")}
             value={form.emailOrUsername}
             onChange={(e) =>
               setForm({ ...form, emailOrUsername: e.target.value })
             }
             required
+            style={input(theme)}
           />
 
           <input
             type="password"
-            placeholder="Пароль"
+            placeholder={t("login.password")}
             value={form.password}
-            onChange={(e) =>
-              setForm({ ...form, password: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
+            style={input(theme)}
           />
 
-          <button type="submit">Увійти</button>
+          <button type="submit" style={btn(theme)}>
+            {t("login.submit")}
+          </button>
         </form>
 
-        <p style={{ color: "gray" }}>{message}</p>
+        {message && (
+          <p
+            style={{
+              color: theme.error,
+              marginTop: 12,
+              textAlign: "center",
+              fontWeight: 500,
+            }}
+          >
+            {message}
+          </p>
+        )}
 
-        <a href="/register">Немає акаунта? Зареєструватися</a>
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <Link to="/register" style={{ color: theme.primary }}>
+            {t("login.noAccount")}
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
-const styles = {
-  wrapper: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    height: "100vh",
-    background: "linear-gradient(120deg, #3b82f6, #9333ea)",
-  },
-  card: {
-    background: "white",
-    padding: "30px",
-    borderRadius: "10px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-    textAlign: "center",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    marginBottom: "10px",
-  },
-};
+// ---------- STYLES ----------
+const wrapper = (theme) => ({
+  minHeight: "100vh",
+  paddingTop: 80,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: theme.pageBg,
+});
+
+const card = (theme) => ({
+  width: 380,
+  background: theme.cardBg,
+  padding: 30,
+  borderRadius: 16,
+  border: theme.cardBorder,
+  boxShadow: theme.cardShadow,
+});
+
+const input = (theme) => ({
+  padding: "12px 14px",
+  borderRadius: 12,
+  border: theme.cardBorder,
+  background: theme.pageBg,
+  color: theme.text,
+});
+
+const btn = (theme) => ({
+  padding: "12px 14px",
+  borderRadius: 12,
+  background: theme.primarySoft,
+  border: `1px solid ${theme.primary}`,
+  color: theme.text,
+  fontWeight: 600,
+  cursor: "pointer",
+});

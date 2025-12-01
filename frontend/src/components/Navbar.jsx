@@ -10,34 +10,24 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // === USER STATE ===
+  // страницы авторизации
+  const isAuthPage =
+    location.pathname === "/" ||
+    location.pathname === "/login" ||
+    location.pathname === "/register";
+
+  // состояние пользователя
   const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user")) || {}
+    JSON.parse(localStorage.getItem("user")) || null
   );
 
-  // === LISTEN TO localStorage UPDATES ===
+  // следим за изменением user в localStorage
   useEffect(() => {
-    const syncUser = () => {
-      const updatedUser = JSON.parse(localStorage.getItem("user"));
-      setUser(updatedUser);
+    const handler = () => {
+      setUser(JSON.parse(localStorage.getItem("user")));
     };
-
-    window.addEventListener("storage", syncUser);
-    return () => window.removeEventListener("storage", syncUser);
-  }, []);
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  // AUTO CLOSE DROPDOWN
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
   }, []);
 
   const displayName =
@@ -48,12 +38,99 @@ export default function Navbar() {
 
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  // Highlight active page
   const active = (path) =>
-    location.pathname.startsWith(path)
-      ? theme.primarySoft
-      : "transparent";
+    location.pathname.startsWith(path) ? theme.primarySoft : "transparent";
 
+  // меню
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // ==================================
+  // NAVBAR для Login / Register
+  // ==================================
+  if (isAuthPage) {
+    return (
+      <nav
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: 60,
+          zIndex: 50,
+          background: "transparent",
+          borderBottom: "none",
+          boxShadow: "none",
+          backdropFilter: `blur(${theme.blur})`,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            height: "100%",
+            padding: "0 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* LOGO */}
+          <div
+            onClick={() => navigate("/")}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: theme.primarySoft,
+              color: theme.primary,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Ch
+          </div>
+
+          <div style={{ display: "flex", gap: 12 }}>
+            <button
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("toggle_theme"))
+              }
+              style={miniBtn(theme)}
+            >
+              🎨 Тема
+            </button>
+
+            <button
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("toggle_language"))
+              }
+              style={miniBtn(theme)}
+            >
+              🌐 Мова
+            </button>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // ==================================
+  // ОСНОВНОЙ NAVBAR (авторизованный)
+  // ==================================
   return (
     <nav
       style={{
@@ -74,85 +151,65 @@ export default function Navbar() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 20,
         }}
       >
-        {/* LEFT: LOGO + NAVIGATION TABS */}
+        {/* ЛЕВАЯ ЧАСТЬ */}
         <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-          {/* LOGO */}
           <div
+            onClick={() => navigate("/calendar")}
             style={{
               width: 34,
               height: 34,
               borderRadius: "50%",
               background: theme.primarySoft,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
               color: theme.primary,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
               fontWeight: 700,
-              fontSize: 16,
               cursor: "pointer",
             }}
-            onClick={() => navigate("/calendar")}
           >
             Ch
           </div>
 
-          {/* NAVIGATION TABS */}
           <div
             style={{
               display: "flex",
               gap: 10,
               padding: 4,
               borderRadius: 999,
-              border: theme.cardBorder,
               background: theme.inputBg,
+              border: theme.cardBorder,
             }}
           >
             <button
               onClick={() => navigate("/calendar")}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 999,
-                background: active("/calendar"),
-                border: "none",
-                cursor: "pointer",
-                color: theme.text,
-                fontWeight: 600,
-              }}
+              style={navBtn(theme, active("/calendar"))}
             >
               📅 Календар
             </button>
 
             <button
               onClick={() => navigate("/chat")}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 999,
-                background: active("/chat"),
-                border: "none",
-                cursor: "pointer",
-                color: theme.text,
-                fontWeight: 600,
-              }}
+              style={navBtn(theme, active("/chat"))}
             >
               💬 Чати
             </button>
           </div>
         </div>
 
-        {/* RIGHT: AVATAR + MENU */}
+        {/* ПРАВАЯ ЧАСТЬ */}
         <div style={{ position: "relative" }} ref={menuRef}>
           <button
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={() => setMenuOpen(!menuOpen)}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 8,
               padding: "6px 14px",
-              background: theme.primarySoft,
               borderRadius: 999,
+              background: theme.primarySoft,
               border: `1px solid ${theme.primary}`,
               cursor: "pointer",
               color: theme.text,
@@ -164,14 +221,12 @@ export default function Navbar() {
                 width: 28,
                 height: 28,
                 borderRadius: "50%",
-
                 background: theme.primarySoft,
                 color: theme.primary,
                 display: "flex",
-                alignItems: "center",
                 justifyContent: "center",
+                alignItems: "center",
                 fontWeight: 700,
-                fontSize: 14,
               }}
             >
               {avatarLetter}
@@ -189,25 +244,19 @@ export default function Navbar() {
                 minWidth: 180,
                 background: theme.cardBg,
                 border: theme.cardBorder,
-                boxShadow: theme.cardShadow,
                 borderRadius: 12,
+                boxShadow: theme.cardShadow,
                 padding: "10px 0",
-                zIndex: 1000,
               }}
             >
-              <MenuItem
-                label="Профіль"
-                onClick={() => navigate("/profile")}
-                theme={theme}
-              />
+              <MenuItem label="Профіль" onClick={() => navigate("/profile")} />
               <MenuItem
                 label="Налаштування"
                 onClick={() =>
                   window.dispatchEvent(new CustomEvent("open_settings"))
                 }
-                theme={theme}
               />
-              <MenuItem label="Вийти" onClick={logout} danger theme={theme} />
+              <MenuItem label="Вийти" danger onClick={logout} />
             </div>
           )}
         </div>
@@ -216,14 +265,15 @@ export default function Navbar() {
   );
 }
 
-function MenuItem({ label, onClick, theme, danger }) {
+// ---------- UI HELPERS ----------
+function MenuItem({ label, danger, onClick }) {
   return (
     <div
       onClick={onClick}
       style={{
         padding: "10px 16px",
         cursor: "pointer",
-        color: danger ? "#ef4444" : theme.text,
+        color: danger ? "#ef4444" : "inherit",
         fontWeight: danger ? 700 : 500,
       }}
     >
@@ -231,3 +281,22 @@ function MenuItem({ label, onClick, theme, danger }) {
     </div>
   );
 }
+
+const miniBtn = (theme) => ({
+  padding: "6px 12px",
+  borderRadius: 10,
+  border: `1px solid ${theme.primary}`,
+  background: theme.primarySoft,
+  color: theme.text,
+  cursor: "pointer",
+});
+
+const navBtn = (theme, bg) => ({
+  padding: "8px 16px",
+  borderRadius: 999,
+  background: bg,
+  border: "none",
+  cursor: "pointer",
+  color: theme.text,
+  fontWeight: 600,
+});

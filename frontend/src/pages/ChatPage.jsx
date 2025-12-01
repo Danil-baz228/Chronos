@@ -20,9 +20,7 @@ export default function ChatPage() {
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const chatRef = useRef(null);
 
-  // ======================
-  // LOAD CHATS
-  // ======================
+
   const loadChats = async () => {
     const res = await fetch("http://localhost:5000/api/chat", {
       headers: { Authorization: `Bearer ${token}` },
@@ -47,9 +45,7 @@ export default function ChatPage() {
     return () => socket.off("online_users");
   }, []);
 
-  // ======================
-  // SEARCH USERS
-  // ======================
+ 
   const searchUsers = async (query) => {
     if (!query.trim()) {
       setUsers([]);
@@ -193,8 +189,7 @@ export default function ChatPage() {
   // ======================
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
-      {/* NAVBAR */}
-      <Navbar />
+     
 
       {/* CHAT LAYOUT */}
       <div

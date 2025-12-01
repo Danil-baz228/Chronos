@@ -69,9 +69,12 @@ export default function UserProfile() {
 
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
-      <Navbar />
+      
 
-      <div style={{ maxWidth: 900, margin: "80px auto 0" }}>
+      <div style={{ maxWidth: 900, paddingTop: "40px", margin: "0 auto" }}>
+
+
+
         
         {/* USER CARD */}
         <div style={{ ...cardStyle, display: "flex", gap: 20 }}>

@@ -19,6 +19,7 @@ const THEMES = {
     inputBg: "rgba(248,250,252,0.9)",
     blur: "12px",
   },
+
   dark: {
     name: "dark",
     pageBg: "radial-gradient(circle at top, #1f2933, #020617)",
@@ -34,6 +35,7 @@ const THEMES = {
     inputBg: "rgba(15,23,42,0.9)",
     blur: "18px",
   },
+
   glass: {
     name: "glass",
     pageBg:
@@ -53,15 +55,29 @@ const THEMES = {
 };
 
 export function ThemeProvider({ children }) {
-  // 1️⃣ Завантажуємо тему з localStorage (або glass за замовчуванням)
+  // Load from localStorage or default to glass
   const [themeName, setThemeName] = useState(() => {
     return localStorage.getItem("themeName") || "glass";
   });
 
-  // 2️⃣ Зберігаємо тему при кожній зміні
+  // Save on change
   useEffect(() => {
     localStorage.setItem("themeName", themeName);
   }, [themeName]);
+
+  // Allow Navbar to change theme via CustomEvent
+  useEffect(() => {
+    const handler = () => {
+      setThemeName((prev) => {
+        if (prev === "light") return "dark";
+        if (prev === "dark") return "glass";
+        return "light";
+      });
+    };
+
+    window.addEventListener("toggle_theme", handler);
+    return () => window.removeEventListener("toggle_theme", handler);
+  }, []);
 
   const theme = useMemo(() => THEMES[themeName] || THEMES.glass, [themeName]);
 
@@ -75,8 +91,6 @@ export function ThemeProvider({ children }) {
   );
 
   return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
 }

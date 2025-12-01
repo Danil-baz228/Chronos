@@ -5,7 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CalendarPage from "./pages/CalendarPage";
 import UserProfile from "./pages/UserProfile";
-import ChatPage from "./pages/ChatPage";   // <-- добавили
+import ChatPage from "./pages/ChatPage";
 
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -13,44 +13,56 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { LanguageProvider } from "./context/LanguageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 
+import Navbar from "./components/Navbar";   // <-- ДОБАВИЛ !!!
+
 function AppContent() {
   const { user } = useContext(AuthContext);
 
   return (
-    <Routes>
-      <Route path="/" element={user ? <Navigate to="/calendar" /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/calendar" /> : <Register />} />
+    <>
+      <Navbar />  
+      
+      <Routes>
+        <Route
+          path="/"
+          element={user ? <Navigate to="/calendar" /> : <Login />}
+        />
 
-      <Route
-        path="/calendar"
-        element={
-          <ProtectedRoute>
-            <CalendarPage />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/register"
+          element={user ? <Navigate to="/calendar" /> : <Register />}
+        />
 
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <UserProfile />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute>
+              <CalendarPage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* 🔥 Новый маршрут — Чат */}
-      <Route
-        path="/chat"
-        element={
-          <ProtectedRoute>
-            <ChatPage />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </>
   );
 }
 

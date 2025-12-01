@@ -415,7 +415,7 @@ export default function CalendarPage() {
   // ============================
   return (
     <div style={{ background: theme.pageBg, minHeight: "100vh" }}>
-      <Navbar />
+      
 
       <SettingsModal
         isOpen={settingsOpen}

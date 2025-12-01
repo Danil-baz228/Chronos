@@ -5,7 +5,7 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // <-- ДОБАВИЛИ
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -15,19 +15,27 @@ export const AuthProvider = ({ children }) => {
       setUser(JSON.parse(storedUser));
     }
 
-    setLoading(false); // <-- ОЧЕНЬ ВАЖНО
+    setLoading(false);
   }, []);
 
   const login = (userData, token) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
+
     setUser(userData);
+
+    // 🔥 ДИСПАТЧИМ СОБЫТИЕ, чтобы Navbar узнал об обновлении
+    window.dispatchEvent(new CustomEvent("user_updated"));
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
     setUser(null);
+
+    // 🔥 Сообщаем Navbar, что user пропал
+    window.dispatchEvent(new CustomEvent("user_updated"));
   };
 
   return (
