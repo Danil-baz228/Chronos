@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { ThemeContext } from "../context/ThemeContext";
+import Navbar from "../components/Navbar";
 
 export default function UserProfile() {
   const { theme } = useContext(ThemeContext);
@@ -10,9 +11,6 @@ export default function UserProfile() {
 
   const token = localStorage.getItem("token");
 
-  // ============================
-  //  LOAD USER FROM LOCALSTORAGE
-  // ============================
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) {
@@ -22,9 +20,6 @@ export default function UserProfile() {
     setUser(JSON.parse(stored));
   }, []);
 
-  // ============================
-  //  LOAD EVENTS
-  // ============================
   useEffect(() => {
     if (!token) return;
 
@@ -35,7 +30,6 @@ export default function UserProfile() {
         });
 
         if (!res.ok) {
-          console.warn("Cannot load events");
           setEvents([]);
           return;
         }
@@ -52,13 +46,7 @@ export default function UserProfile() {
     loadEvents();
   }, [token]);
 
-  if (!user) {
-    return null; // поки useEffect робить redirect
-  }
-
-  // ============================
-  //  STYLES
-  // ============================
+  if (!user) return null;
 
   const cardStyle = {
     background: theme.cardBg,
@@ -80,15 +68,11 @@ export default function UserProfile() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: theme.pageBg,
-        padding: "40px 20px",
-      }}
-    >
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      
+    <div style={{ minHeight: "100vh", background: theme.pageBg }}>
+      <Navbar />
+
+      <div style={{ maxWidth: 900, margin: "80px auto 0" }}>
+        
         {/* USER CARD */}
         <div style={{ ...cardStyle, display: "flex", gap: 20 }}>
           <div
@@ -115,15 +99,9 @@ export default function UserProfile() {
             </p>
 
             <div style={{ marginTop: 14, lineHeight: "1.7" }}>
-              <div>
-                <b>Ім’я:</b> {user.fullName || "—"}
-              </div>
-              <div>
-                <b>Email:</b> {user.email}
-              </div>
-              <div>
-                <b>ID:</b> {user._id}
-              </div>
+              <div><b>Ім’я:</b> {user.fullName || "—"}</div>
+              <div><b>Email:</b> {user.email}</div>
+              <div><b>ID:</b> {user._id}</div>
             </div>
           </div>
         </div>
@@ -144,6 +122,7 @@ export default function UserProfile() {
             >
               <b>Подій:</b> {events.length}
             </div>
+
             <div
               style={{
                 flex: "1 1 200px",

@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CalendarPage from "./pages/CalendarPage";
 import UserProfile from "./pages/UserProfile";
+import ChatPage from "./pages/ChatPage";   // <-- добавили
 
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -34,6 +35,16 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <UserProfile />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 🔥 Новый маршрут — Чат */}
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <ChatPage />
           </ProtectedRoute>
         }
       />

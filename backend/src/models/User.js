@@ -2,21 +2,32 @@ import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
   {
-    name: {
+    username: {
       type: String,
-      required: false,
-      default: "",
+      trim: true,
+      required: true,
+      unique: true, // 🔥 Нік унікальний
     },
+
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
+      trim: true,
     },
-    password: {
-      type: String,
-      required: true,
-    },
+
+    password: { type: String, required: true },
+
+    avatar: { type: String, default: "" },
+
+    holidayRegion: { type: String, default: "UA" }
   },
   { timestamps: true }
 );

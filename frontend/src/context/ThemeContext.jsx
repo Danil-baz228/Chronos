@@ -1,5 +1,5 @@
 // src/context/ThemeContext.jsx
-import React, { createContext, useState, useMemo } from "react";
+import React, { createContext, useState, useMemo, useEffect } from "react";
 
 export const ThemeContext = createContext();
 
@@ -53,7 +53,15 @@ const THEMES = {
 };
 
 export function ThemeProvider({ children }) {
-  const [themeName, setThemeName] = useState("glass");
+  // 1️⃣ Завантажуємо тему з localStorage (або glass за замовчуванням)
+  const [themeName, setThemeName] = useState(() => {
+    return localStorage.getItem("themeName") || "glass";
+  });
+
+  // 2️⃣ Зберігаємо тему при кожній зміні
+  useEffect(() => {
+    localStorage.setItem("themeName", themeName);
+  }, [themeName]);
 
   const theme = useMemo(() => THEMES[themeName] || THEMES.glass, [themeName]);
 
@@ -61,12 +69,14 @@ export function ThemeProvider({ children }) {
     () => ({
       theme,
       themeName,
-      setThemeName,   
+      setThemeName,
     }),
     [theme, themeName]
   );
 
   return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>
+      {children}
+    </ThemeContext.Provider>
   );
 }

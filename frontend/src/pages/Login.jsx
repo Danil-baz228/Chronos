@@ -4,45 +4,59 @@ import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({
+    emailOrUsername: "",
+    password: "",
+  });
+
   const [message, setMessage] = useState("");
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const res = await loginAPI(form);
+
     if (res.token) {
       login(res.user, res.token);
       navigate("/calendar");
     } else {
-      setMessage(res.error || "Ошибка авторизации");
+      setMessage(res.error || "Помилка авторизації");
     }
   };
 
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
-        <h2>Вход</h2>
+        <h2>Вхід</h2>
+
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="Email або логін"
+            value={form.emailOrUsername}
+            onChange={(e) =>
+              setForm({ ...form, emailOrUsername: e.target.value })
+            }
             required
           />
+
           <input
             type="password"
             placeholder="Пароль"
             value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, password: e.target.value })
+            }
             required
           />
-          <button type="submit">Войти</button>
+
+          <button type="submit">Увійти</button>
         </form>
+
         <p style={{ color: "gray" }}>{message}</p>
-        <a href="/register">Нет аккаунта? Зарегистрироваться</a>
+
+        <a href="/register">Немає акаунта? Зареєструватися</a>
       </div>
     </div>
   );

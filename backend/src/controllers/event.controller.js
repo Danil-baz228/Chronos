@@ -364,7 +364,12 @@ export const getHolidaysController = async (req, res) => {
       return res.status(400).json({ error: "Некорректный год" });
     }
 
-    const holidays = await getHolidays("UA", year);
+    // ✅ Берём регион из профиля пользователя (holidayRegion) или "UA" по умолчанию
+    const region = req.user?.holidayRegion || "UA";
+
+    const holidays = await getHolidays(region, year);
+
+    // Формат ответа тот же, что был — просто массив праздников
     res.json(holidays);
   } catch (e) {
     console.error("Ошибка getHolidaysController:", e);

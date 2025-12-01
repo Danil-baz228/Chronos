@@ -5,6 +5,25 @@ import { getISOWeek } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
 
+// =========================================
+//  🔥 Форматируем названия праздничных календарей
+// =========================================
+function formatHolidayName(name) {
+  if (!name) return "";
+
+  const lower = name.toLowerCase();
+
+  // Если это НЕ holiday-календарь → возвращаем как есть
+  if (!lower.includes("holiday")) return name;
+
+  // Ищем регион в скобках "(UA)"
+  const regionMatch = name.match(/\((.*?)\)/);
+  const region = regionMatch ? regionMatch[1] : "";
+
+  // Возвращаем формат
+  return region ? `Holidays (${region})` : "Holidays";
+}
+
 export default function CalendarToolbar({
   calendars,
   setCalendars,
@@ -19,14 +38,11 @@ export default function CalendarToolbar({
   currentDate,
   onNewEventClick,
 
-  // кнопки керування календарями (если будут использоваться)
   onOpenManager,
   onToggleHidden,
   hiddenCount,
 
   token,
-
-  // 🔥 ГОЛОВНЕ — чи можна створювати події
   canCreateEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
@@ -103,9 +119,7 @@ export default function CalendarToolbar({
           padding: 12,
           borderRadius: 14,
           background:
-            theme.name === "glass"
-              ? "rgba(15,23,42,0.85)"
-              : theme.cardBg,
+            theme.name === "glass" ? "rgba(15,23,42,0.85)" : theme.cardBg,
           border: theme.cardBorder,
           boxShadow: theme.cardShadow,
           backdropFilter: `blur(${theme.blur})`,
@@ -139,7 +153,7 @@ export default function CalendarToolbar({
           >
             {calendars.map((c) => (
               <option key={c._id} value={c._id}>
-                {c.name}
+                {formatHolidayName(c.name)}
               </option>
             ))}
           </select>
