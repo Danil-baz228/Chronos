@@ -5,9 +5,9 @@ import User from "../models/User.js";
 import { getHolidays } from "../utils/getHolidays.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
-// =====================================
-//  ВСПОМОГАТЕЛЬНЫЕ
-// =====================================
+// ======================================================================
+// HELPERS
+// ======================================================================
 function isSameId(a, b) {
   if (!a || !b) return false;
   return a.toString() === b.toString();
@@ -22,74 +22,115 @@ async function getMainCalendarId(userId) {
   return cal?._id || null;
 }
 
-// =====================================
-//   ПОЛУЧЕНИЕ ВСЕХ СОБЫТИЙ ПОЛЬЗОВАТЕЛЯ
-// =====================================
+// 🔔 helper: рассылаем socket + email (но email не актору)
+async function notifyUsersWithEmail(userIds, payload, actorId) {
+  if (!Array.isArray(userIds)) userIds = [userIds];
+
+  const ids = [...new Set(userIds.map((u) => u.toString()))];
+
+  // 1) Socket-уведомление — всем
+  ids.forEach((id) => {
+    global.sendNotification(id, payload);
+  });
+
+  // 2) E-mail — всем, кроме того, кто выполняет действие
+  const emailTargets = ids.filter(
+    (id) => !actorId || id.toString() !== actorId.toString()
+  );
+
+  if (!emailTargets.length) return;
+
+  const users = await User.find({ _id: { $in: emailTargets } }).select("email");
+  const subject = payload.title || "Сповіщення від Chronos";
+
+  await Promise.all(
+    users
+      .filter((u) => !!u.email)
+      .map((u) =>
+        sendEmail(u.email, subject, payload.message, `<p>${payload.message}</p>`)
+      )
+  );
+}
+
+// ======================================================================
+// GET EVENTS
+// ======================================================================
 export const getEvents = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user._id.toString();
 
     const calendars = await Calendar.find({
       $or: [{ owner: userId }, { editors: userId }, { members: userId }],
-    }).select("_id");
+    }).select("_id isHolidayCalendar isMain");
 
     const calendarIds = calendars.map((c) => c._id.toString());
 
-    const calendarEvents = await Event.find({
+    const mainCalendar = calendars.find((c) => c.isMain);
+    const holidayCalendar = calendars.find((c) => c.isHolidayCalendar);
+
+    const allowedHolidayCals = [
+      mainCalendar?._id?.toString(),
+      holidayCalendar?._id?.toString(),
+    ].filter(Boolean);
+
+    let calendarEvents = await Event.find({
       calendar: { $in: calendarIds },
     })
-      .populate("invitedUsers", "name fullName email")
-      .populate("creator", "name fullName email");
+      .populate("calendar", "isHolidayCalendar isMain")
+      .populate("invitedFrom", "_id title");
 
-    const invitedEvents = await Event.find({
+    calendarEvents = calendarEvents.filter((ev) => {
+      if (ev.category !== "holiday") return true;
+      return allowedHolidayCals.includes(ev.calendar?._id?.toString());
+    });
+
+    let invitedEvents = await Event.find({
       invitedUsers: userId,
-    })
-      .populate("invitedUsers", "name fullName email")
-      .populate("creator", "name fullName email");
+    }).populate("invitedFrom", "_id title");
 
-    const copies = new Set(
-      calendarEvents
-        .filter((e) => e.invitedFrom)
-        .map((e) => e.invitedFrom.toString())
+    const ownIds = new Set(calendarEvents.map((ev) => ev._id.toString()));
+    invitedEvents = invitedEvents.filter(
+      (ev) => !ownIds.has(ev._id.toString())
     );
 
-    const filteredInvited = invitedEvents.filter(
-      (e) => !copies.has(e._id.toString())
-    );
+    const all = [...calendarEvents, ...invitedEvents];
+    const allIds = all.map((e) => e._id);
 
-    const map = new Map();
-    [...calendarEvents, ...filteredInvited].forEach((e) =>
-      map.set(e._id.toString(), e)
-    );
+    const populated = await Event.find({ _id: { $in: allIds } })
+      .populate("creator", "fullName email")
+      .populate("invitedUsers", "fullName email")
+      .populate("calendar", "name isMain isHolidayCalendar")
+      .populate("invitedFrom", "title _id");
 
-    res.json([...map.values()]);
+    return res.json(populated);
   } catch (err) {
-    console.error("❌ Ошибка загрузки событий:", err);
+    console.error("❌ getEvents error:", err);
     res.status(500).json({ error: "Ошибка загрузки событий" });
   }
 };
 
-// =====================================
-//   СОЗДАНИЕ СОБЫТИЯ
-// =====================================
+// ======================================================================
+// CREATE EVENT — WITH NOTIFICATIONS + EMAIL
+// ======================================================================
 export const createEvent = async (req, res) => {
   try {
     const calendar = await Calendar.findById(req.body.calendar);
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
+    if (!calendar)
+      return res.status(404).json({ error: "Календар не знайдено" });
 
-    // Календарь праздников — только просмотр
-    if (calendar.isHolidayCalendar) {
+    if (calendar.isHolidayCalendar)
       return res
         .status(403)
-        .json({ error: "Нельзя создавать события в календаре праздников" });
-    }
+        .json({ error: "Неможливо створити подію в календарі свят" });
 
     const userId = req.user._id;
     const isOwner = isSameId(calendar.owner, userId);
     const isEditor = userInArray(userId, calendar.editors);
 
     if (!isOwner && !isEditor)
-      return res.status(403).json({ error: "Нет прав создавать события" });
+      return res
+        .status(403)
+        .json({ error: "Немає прав створювати події" });
 
     const event = await Event.create({
       ...req.body,
@@ -98,47 +139,69 @@ export const createEvent = async (req, res) => {
       readOnly: false,
     });
 
-    res.status(201).json(event);
+    // 🔔 NOTIFICATIONS (CREATED)
+    if (calendar.notificationsEnabled) {
+      const users = [
+        calendar.owner,
+        ...calendar.editors,
+        ...calendar.members,
+      ];
+
+      const payload = {
+        type: "event_created",
+        calendar: calendar._id,
+        event: event._id,
+        title: event.title,
+        message: `Нова подія "${event.title}" створена в календарі "${calendar.name}"`,
+        meta: {
+          date: event.date,
+          duration: event.duration,
+        },
+      };
+
+      await notifyUsersWithEmail(users, payload, req.user._id);
+    }
+
+    return res.json({ success: true, event });
   } catch (err) {
-    console.error("Ошибка создания:", err);
-    res.status(400).json({ error: err.message });
+    console.error("❌ createEvent error:", err);
+    res.status(400).json({ error: "Помилка створення" });
   }
 };
 
-// =====================================
-//   ОБНОВЛЕНИЕ ОРИГИНАЛА + ВСЕХ КОПИЙ
-// =====================================
+// ======================================================================
+// UPDATE EVENT — WITH NOTIFICATIONS + EMAIL
+// ======================================================================
 export const updateEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ error: "Событие не найдено" });
+    if (!event)
+      return res.status(404).json({ error: "Подію не знайдено" });
 
-    // Праздники и readOnly-события не редактируются
-    if (event.category === "holiday" || event.readOnly) {
+    if (event.category === "holiday" || event.readOnly)
       return res
         .status(403)
-        .json({ error: "Праздничные события нельзя редактировать" });
-    }
+        .json({ error: "Цю подію не можна редагувати" });
 
-    // Копия не редактируется
     if (event.invitedFrom)
-      return res.status(403).json({
-        error: "Приглашённые пользователи не могут редактировать событие",
-      });
+      return res
+        .status(403)
+        .json({ error: "Гості не можуть редагувати подію" });
 
     const calendar = await Calendar.findById(event.calendar);
     const userId = req.user._id;
 
-    const isOwner = calendar && isSameId(calendar.owner, userId);
-    const isEditor = userInArray(userId, calendar.editors);
     const isCreator = isSameId(event.creator, userId);
+    const isOwner = isSameId(calendar.owner, userId);
+    const isEditor = userInArray(userId, calendar.editors);
 
-    if (!isOwner && !isEditor && !isCreator)
-      return res.status(403).json({ error: "Нет прав" });
+    if (!isCreator && !isOwner && !isEditor)
+      return res.status(403).json({ error: "Немає прав" });
 
     Object.assign(event, req.body);
     await event.save();
 
+    // Синхронизация копий приглашаемых
     await Event.updateMany(
       { invitedFrom: event._id },
       {
@@ -151,99 +214,112 @@ export const updateEvent = async (req, res) => {
       }
     );
 
-    res.json(event);
+    // 🔔 NOTIFICATIONS (UPDATED)
+    if (calendar.notificationsEnabled) {
+      const users = [
+        calendar.owner,
+        ...calendar.editors,
+        ...calendar.members,
+      ];
+
+      const payload = {
+        type: "event_updated",
+        calendar: calendar._id,
+        event: event._id,
+        title: event.title,
+        message: `Подію "${event.title}" оновлено в календарі "${calendar.name}"`,
+        meta: {
+          date: event.date,
+          duration: event.duration,
+        },
+      };
+
+      await notifyUsersWithEmail(users, payload, req.user._id);
+    }
+
+    return res.json({ success: true, event });
   } catch (err) {
-    console.error("Ошибка обновления:", err);
-    res.status(400).json({ error: "Ошибка обновления" });
+    console.error("❌ updateEvent error:", err);
+    res.status(400).json({ error: "Помилка оновлення" });
   }
 };
 
-// =====================================
-//   УДАЛЕНИЕ ОРИГИНАЛА ИЛИ КОПИИ
-// =====================================
+// ======================================================================
+// DELETE EVENT — WITH NOTIFICATIONS + EMAIL
+// ======================================================================
 export const deleteEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ error: "Событие не найдено" });
+    if (!event)
+      return res.status(404).json({ error: "Подію не знайдено" });
 
-    // Праздники и readOnly не удаляются
-    if (event.category === "holiday" || event.readOnly) {
+    if (event.category === "holiday" || event.readOnly)
       return res
         .status(403)
-        .json({ error: "Праздничные события нельзя удалить" });
-    }
+        .json({ error: "Свята не можна видалити" });
 
     const userId = req.user._id;
-
-    if (event.invitedFrom) {
-      const calendar = await Calendar.findById(event.calendar);
-
-      if (calendar && isSameId(calendar.owner, userId)) {
-        await event.deleteOne();
-        return res.json({ message: "Копия события удалена" });
-      }
-
-      return res.status(403).json({ error: "Можно удалить только свою копию" });
-    }
 
     const calendar = await Calendar.findById(event.calendar);
     const isOwner = isSameId(calendar.owner, userId);
     const isCreator = isSameId(event.creator, userId);
 
     if (!isOwner && !isCreator)
-      return res.status(403).json({ error: "Нет прав удалять событие" });
+      return res
+        .status(403)
+        .json({ error: "Немає прав видаляти" });
+
+    // Save before delete
+    const deletedDate = event.date;
+    const deletedTitle = event.title;
+    const eventId = event._id.toString();
 
     await event.deleteOne();
-    await Event.deleteMany({ invitedFrom: event._id });
+    await Event.deleteMany({ invitedFrom: eventId });
 
-    res.json({ message: "Событие и все копии удалены" });
+    // 🔔 NOTIFICATIONS (DELETED)
+    if (calendar.notificationsEnabled) {
+      const users = [
+        calendar.owner,
+        ...calendar.editors,
+        ...calendar.members,
+      ];
+
+      const payload = {
+        type: "event_deleted",
+        calendar: calendar._id,
+        event: eventId,
+        title: deletedTitle,
+        message: `Подію "${deletedTitle}" видалено з календаря "${calendar.name}"`,
+        meta: {
+          date: deletedDate,
+        },
+      };
+
+      await notifyUsersWithEmail(users, payload, req.user._id);
+    }
+
+    return res.json({ success: true });
   } catch (err) {
-    console.error("Ошибка удаления:", err);
-    res.status(400).json({ error: "Ошибка удаления" });
+    console.error("❌ deleteEvent error:", err);
+    res.status(400).json({ error: "Помилка видалення" });
   }
 };
 
-// =====================================
-//   ПОИСК
-// =====================================
-export const searchEvents = async (req, res) => {
-  try {
-    const { q, category } = req.query;
-    const userId = req.user._id;
-
-    const calendars = await Calendar.find({
-      $or: [{ owner: userId }, { editors: userId }, { members: userId }],
-    }).select("_id");
-
-    const ids = calendars.map((c) => c._id);
-
-    const query = { calendar: { $in: ids } };
-    if (q) query.title = { $regex: q, $options: "i" };
-    if (category) query.category = category;
-
-    const events = await Event.find(query)
-      .populate("invitedUsers", "name fullName email")
-      .populate("creator", "name fullName email");
-
-    res.json(events);
-  } catch (err) {
-    console.error("Ошибка поиска:", err);
-    res.status(400).json({ error: "Ошибка поиска" });
-  }
-};
-
-// =====================================
-//   ПРИГЛАШЕНИЕ НА СОБЫТИЕ
-// =====================================
+// ======================================================================
+// INVITE USER TO EVENT — WITH NOTIFICATIONS + EMAIL
+// ======================================================================
 export const inviteToEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { email } = req.body;
 
     const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ error: "Событие не найдено" });
+    if (!event)
+      return res.status(404).json({ error: "Подію не знайдено" });
 
     const calendar = await Calendar.findById(event.calendar);
+
     const userId = req.user._id;
 
     const isCreator = isSameId(event.creator, userId);
@@ -251,7 +327,7 @@ export const inviteToEvent = async (req, res) => {
     const isEditor = userInArray(userId, calendar.editors);
 
     if (!isCreator && !isOwner && !isEditor)
-      return res.status(403).json({ error: "Нет прав приглашать" });
+      return res.status(403).json({ error: "Немає прав запрошувати" });
 
     const user = await User.findOne({ email });
 
@@ -277,7 +353,24 @@ export const inviteToEvent = async (req, res) => {
           creator: event.creator,
           calendar: mainId,
           invitedFrom: event._id,
+          readOnly: true,
         });
+      }
+
+      // 🔔 NOTIFICATION for INVITED user
+      if (calendar.notificationsEnabled) {
+        const payload = {
+          type: "event_invited",
+          calendar: calendar._id,
+          event: event._id,
+          title: event.title,
+          message: `Вас запрошено до події "${event.title}" в календарі "${calendar.name}"`,
+          meta: {
+            date: event.date,
+          },
+        };
+
+        await notifyUsersWithEmail(user._id, payload, req.user._id);
       }
     } else {
       if (!event.invitedEmails.includes(email))
@@ -286,27 +379,28 @@ export const inviteToEvent = async (req, res) => {
 
     await event.save();
 
-    res.json(
-      await Event.findById(event._id)
-        .populate("invitedUsers", "name fullName email")
-        .populate("creator", "name fullName email")
-    );
+    const updated = await Event.findById(event._id)
+      .populate("invitedUsers", "fullName email")
+      .populate("creator", "fullName email");
+
+    return res.json({ success: true, event: updated });
   } catch (err) {
-    console.error("Ошибка приглашения:", err);
-    res.status(500).json({ error: "Ошибка приглашения" });
+    console.error("❌ inviteToEvent error:", err);
+    res.status(500).json({ error: "Помилка запрошення" });
   }
 };
 
-// =====================================
-//   УДАЛЕНИЕ ПРИГЛАШЁННОГО
-// =====================================
+// ======================================================================
+// REMOVE INVITED USER — WITH NOTIFICATIONS + EMAIL
+// ======================================================================
 export const removeInvite = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { type, value } = req.body;
 
     const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ error: "Событие не найдено" });
+    if (!event)
+      return res.status(404).json({ error: "Подію не знайдено" });
 
     const calendar = await Calendar.findById(event.calendar);
     const current = req.user._id;
@@ -314,9 +408,8 @@ export const removeInvite = async (req, res) => {
     const isOwner = isSameId(calendar.owner, current);
     const isCreator = isSameId(event.creator, current);
 
-    if (!isOwner && !isCreator) {
-      return res.status(403).json({ error: "Нет прав удалять" });
-    }
+    if (!isOwner && !isCreator)
+      return res.status(403).json({ error: "Немає прав видаляти" });
 
     if (type === "user") {
       event.invitedUsers = event.invitedUsers.filter(
@@ -329,6 +422,22 @@ export const removeInvite = async (req, res) => {
         invitedFrom: event._id,
         calendar: mainId,
       });
+
+      // 🔔 notify removed user
+      if (calendar.notificationsEnabled) {
+        const payload = {
+          type: "event_removed",
+          calendar: calendar._id,
+          event: event._id,
+          title: event.title,
+          message: `Вас видалено з події "${event.title}" в календарі "${calendar.name}"`,
+          meta: {
+            date: event.date,
+          },
+        };
+
+        await notifyUsersWithEmail(value.toString(), payload, req.user._id);
+      }
     }
 
     if (type === "email") {
@@ -337,42 +446,64 @@ export const removeInvite = async (req, res) => {
 
     await event.save();
 
-    const populated = await Event.findById(event._id)
-      .populate("invitedUsers", "name fullName email")
-      .populate("creator", "name fullName email");
+    const updated = await Event.findById(event._id)
+      .populate("invitedUsers", "fullName email")
+      .populate("creator", "fullName email");
 
-    return res.json({
-      success: true,
-      event: populated,
-    });
+    return res.json({ success: true, event: updated });
   } catch (err) {
-    console.error("Ошибка removeInvite:", err);
-    return res.status(500).json({ error: "Ошибка удаления приглашённого" });
+    console.error("❌ removeInvite error:", err);
+    res.status(500).json({ error: "Помилка видалення запрошеного" });
   }
 };
 
-// =====================================
-//   ПРАЗДНИКИ (по году)
-//   GET /api/events/holidays?year=2026
-// =====================================
+// ======================================================================
+// SEARCH EVENTS
+// ======================================================================
+export const searchEvents = async (req, res) => {
+  try {
+    const { q, category } = req.query;
+    const userId = req.user._id;
+
+    const calendars = await Calendar.find({
+      $or: [{ owner: userId }, { editors: userId }, { members: userId }],
+    }).select("_id");
+
+    const ids = calendars.map((c) => c._id);
+    const query = { calendar: { $in: ids } };
+
+    if (q) query.title = { $regex: q, $options: "i" };
+    if (category) query.category = category;
+
+    const events = await Event.find(query)
+      .populate("invitedUsers", "fullName email")
+      .populate("creator", "fullName email");
+
+    res.json(events);
+  } catch (err) {
+    console.error("❌ searchEvents error:", err);
+    res.status(500).json({ error: "Помилка пошуку" });
+  }
+};
+
+// ======================================================================
+// HOLIDAYS
+// ======================================================================
 export const getHolidaysController = async (req, res) => {
   try {
     const yearParam = req.query.year;
     const year = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
 
-    if (Number.isNaN(year)) {
-      return res.status(400).json({ error: "Некорректный год" });
-    }
+    if (Number.isNaN(year))
+      return res.status(400).json({ error: "Некоректний рік" });
 
-    // ✅ Берём регион из профиля пользователя (holidayRegion) или "UA" по умолчанию
     const region = req.user?.holidayRegion || "UA";
 
     const holidays = await getHolidays(region, year);
 
-    // Формат ответа тот же, что был — просто массив праздников
     res.json(holidays);
   } catch (e) {
-    console.error("Ошибка getHolidaysController:", e);
-    res.status(500).json({ error: "Не удалось загрузить праздники" });
+    console.error("❌ getHolidays error:", e);
+    res.status(500).json({ error: "Не вдалося завантажити свята" });
   }
 };

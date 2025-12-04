@@ -83,7 +83,7 @@ export const sendMessage = async (req, res) => {
       .populate("sender", "fullName email");
 
     // 🔥 Отправляем всем в комнате чата
-    io.to(req.params.chatId).emit("new_message", fullMsg);
+    io.to(`chat:${req.params.chatId}`).emit("new_message", fullMsg);
 
     return res.json(fullMsg);
 

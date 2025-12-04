@@ -9,6 +9,12 @@ import {
 
 const router = express.Router();
 
+import uploadAvatar from "../middleware/uploadAvatar.js";
+import { uploadAvatar as uploadAvatarController } from "../controllers/user.controller.js";
+
+router.post("/avatar", requireAuth, uploadAvatar, uploadAvatarController);
+
+
 router.get("/search", requireAuth, searchUsers);
 router.put("/update", requireAuth, updateProfile);
 router.put("/change-password", requireAuth, updatePassword);

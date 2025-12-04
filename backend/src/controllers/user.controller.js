@@ -1,9 +1,12 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
-import Calendar from "../models/Calendar.js";       // ✅ ДОЛЖЕН БЫТЬ ЗДЕСЬ
-import Event from "../models/Event.js";             // ✅ ДЛЯ удаления событий
+import Calendar from "../models/Calendar.js";
+import Event from "../models/Event.js";
 import { createHolidayCalendar } from "../services/calendar.service.js";
 
+// =======================
+// Search Users
+// =======================
 // =======================
 // Search Users
 // =======================
@@ -87,26 +90,22 @@ export const updateHolidayRegion = async (req, res) => {
     if (!region)
       return res.status(400).json({ error: "Region is required" });
 
-    // Update user region
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { holidayRegion: region },
       { new: true }
     ).select("-password");
 
-    // Find old calendar
     const existingHoliday = await Calendar.findOne({
       owner: userId,
       isHolidayCalendar: true,
     });
 
-    // Delete old calendar & its events
     if (existingHoliday) {
       await Event.deleteMany({ calendar: existingHoliday._id });
       await Calendar.deleteOne({ _id: existingHoliday._id });
     }
 
-    // Create new calendar
     const year = new Date().getFullYear();
     const newHolidayCalendar = await createHolidayCalendar(userId, region, year);
 
@@ -119,5 +118,36 @@ export const updateHolidayRegion = async (req, res) => {
   } catch (e) {
     console.error("❌ updateHolidayRegion ERROR:", e);
     res.status(500).json({ error: "Could not update holiday region" });
+  }
+};
+
+// =======================
+// Upload Avatar
+// =======================
+export const uploadAvatar = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Файл не завантажено" });
+    }
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select("-password");
+
+    return res.json({
+      message: "Аватар успішно оновлено",
+      avatarUrl,
+      user: updated,
+    });
+
+  } catch (e) {
+    console.error("Avatar upload error:", e);
+    res.status(500).json({ error: "Помилка завантаження аватару" });
   }
 };

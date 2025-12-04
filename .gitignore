@@ -1,0 +1,21 @@
+# Node modules
+backend/node_modules/
+frontend/node_modules/
+
+# Environment files
+backend/.env
+frontend/.env
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Build output (на будущее)
+backend/dist/
+frontend/build/
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*

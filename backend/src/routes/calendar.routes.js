@@ -8,7 +8,8 @@ import {
   showCalendar,
   inviteUser,
   updateMemberRole,
-  removeCalendarMember
+  removeCalendarMember,
+  updateCalendarNotifications,   // ← ТЕПЕР ПРАВИЛЬНО
 } from "../controllers/calendar.controller.js";
 
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -46,5 +47,9 @@ router.post("/:id/members/update", updateMemberRole);
 
 // удалить участника или редактора
 router.post("/:id/members/remove", removeCalendarMember);
+
+
+// ==== Toggle notifications ====
+router.patch("/:id/notifications", updateCalendarNotifications);
 
 export default router;

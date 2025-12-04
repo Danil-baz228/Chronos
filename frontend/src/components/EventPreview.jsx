@@ -18,8 +18,11 @@ export default function EventPreview({
   setInviteEmail,
   inviteLoading,
 
-  // 🔥 owner/editor = true, member/holiday = false
-  canManage = true,
+  // 🔥 ВАЖНО: теперь CalendarPage сам передаёт canManage (owner/editor/creator)
+  canManage,
+
+  currentUserId,
+  currentUserEmail,
 }) {
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
@@ -27,9 +30,11 @@ export default function EventPreview({
   if (!event) return null;
 
   const isHoliday = event.category === "holiday";
+
+  // invitedFrom === копия события → это гость
   const isGuest = Boolean(event.invitedFrom);
 
-  // guest может удалить ТОЛЬКО себя
+  // гостю можно удалить ТОЛЬКО свою копию
   const canGuestLeave = isGuest && !canManage;
 
   return (
@@ -104,9 +109,7 @@ export default function EventPreview({
           </Row>
         )}
 
-        {/* ---------------------------------------------- */}
-        {/*              INVITED USERS LIST                */}
-        {/* ---------------------------------------------- */}
+        {/* INVITED LIST */}
         {!isHoliday &&
           (event.invitedUsers?.length > 0 ||
             event.invitedEmails?.length > 0) && (
@@ -151,7 +154,7 @@ export default function EventPreview({
                         )}
                       </div>
 
-                      {/* ❌ удалять может только owner/editor */}
+                      {/* ❌ owner/editor/creator может удалить приглашённого */}
                       {canManage && (
                         <button
                           onClick={() => onRemoveInviteUser(u._id, "user")}
@@ -192,9 +195,7 @@ export default function EventPreview({
             </div>
           )}
 
-        {/* ---------------------------------------------- */}
-        {/*            INVITE FIELD (owner/editor)          */}
-        {/* ---------------------------------------------- */}
+        {/* INVITE FIELD — только owner/editor/creator */}
         {!isHoliday && !isGuest && canManage && (
           <div
             style={{
@@ -257,9 +258,7 @@ export default function EventPreview({
           </div>
         )}
 
-        {/* ---------------------------------------------- */}
-        {/*               ACTION BUTTONS                   */}
-        {/* ---------------------------------------------- */}
+        {/* ACTION BUTTONS */}
         <div
           style={{
             display: "flex",
@@ -268,7 +267,7 @@ export default function EventPreview({
             gap: 8,
           }}
         >
-          {/* owner/editor */}
+          {/* owner/editor/creator */}
           {!isHoliday && !isGuest && canManage && (
             <>
               <button
@@ -305,7 +304,7 @@ export default function EventPreview({
             </>
           )}
 
-          {/* guest → может выйти из события */}
+          {/* Гость может удалить только СВОЮ копию */}
           {canGuestLeave && (
             <button
               onClick={onDeleteSelf}

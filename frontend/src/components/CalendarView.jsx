@@ -32,55 +32,60 @@ export default function CalendarView({
   setCurrentView,
   currentDate,
   setCurrentDate,
-  setPreviewEvent,
+  onEventClick,      // 👈 сюда придёт коллбек из CalendarPage
   openModal,
   colorByCategory,
 
-  // 🔥 ПРАВА ДОСТУПА
+  // права доступа
   canCreateEvents = true,
   canEditEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
 
   // ===============================
-  //   МЭППИНГ СОБЫТИЙ
+  //   МАППИНГ СОБЫТИЙ
   // ===============================
-  const mappedEvents = useMemo(
-    () =>
-      events.map((e) => {
-        const calendar = calendars.find(
-          (c) => c._id?.toString() === e.calendar?.toString()
-        );
+const mappedEvents = useMemo(
+  () =>
+    events.map((e) => {
+      const calendar = calendars.find(
+        (c) => c._id?.toString() === (e.calendar?._id || e.calendar)?.toString()
+      );
 
-        const start = e.start
-          ? new Date(e.start)
-          : e.date
-          ? new Date(e.date)
-          : new Date();
+      const start = e.start
+        ? new Date(e.start)
+        : e.date
+        ? new Date(e.date)
+        : new Date();
 
-        const end = e.end
-          ? new Date(e.end)
-          : addMinutes(start, e.duration || 60);
+      const end = e.end
+        ? new Date(e.end)
+        : addMinutes(start, e.duration || 60);
 
-        const isAllDay = e.allDay === true || e.category === "holiday";
+      const isAllDay = e.allDay === true || e.category === "holiday";
 
-        return {
-          ...e,
-          start,
-          end,
-          allDay: isAllDay,
-          color:
-            e.color ||
-            calendar?.color ||
-            colorByCategory[e.category] ||
-            theme.primary,
-        };
-      }),
-    [events, calendars, colorByCategory, theme.primary]
-  );
+      return {
+        ...e,
+
+        // 👇 ОБЯЗАТЕЛЬНО! ИНАЧЕ КНОПКИ “Удалить у себя” не будет
+        invitedFrom: e.invitedFrom ?? null,
+
+        start,
+        end,
+        allDay: isAllDay,
+        color:
+          e.color ||
+          calendar?.color ||
+          colorByCategory[e.category] ||
+          theme.primary,
+      };
+    }),
+  [events, calendars, colorByCategory, theme.primary]
+);
+
 
   // ===============================
-  //   СТИЛИ ДЛЯ КАЛЕНДАРЯ
+  //        СТИЛИ
   // ===============================
   const calendarStyles = `
     .rbc-off-range-bg,
@@ -92,16 +97,12 @@ export default function CalendarView({
     .rbc-agenda-view,
     .rbc-row-bg {
         background: ${
-          theme.name === "light"
-            ? "#ffffff"
-            : "rgba(15,23,42,0.5)"
+          theme.name === "light" ? "#ffffff" : "rgba(15,23,42,0.5)"
         } !important;
     }
 
     .rbc-date-cell {
-        color: ${
-          theme.name === "light" ? "#0f172a" : "#ffffff"
-        } !important;
+        color: ${theme.name === "light" ? "#0f172a" : "#ffffff"} !important;
         font-weight: 500;
     }
 
@@ -115,7 +116,7 @@ export default function CalendarView({
   `;
 
   // ===============================
-  //   РЕНДЕР КОМПОНЕНТА
+  //     РЕНДЕР
   // ===============================
   return (
     <div
@@ -135,7 +136,7 @@ export default function CalendarView({
 
       <Calendar
         localizer={localizer}
-        selectable={canCreateEvents} // viewer не может выделять слот
+        selectable={canCreateEvents} // member не может выделять слот
         events={mappedEvents}
         startAccessor="start"
         endAccessor="end"
@@ -148,7 +149,7 @@ export default function CalendarView({
         style={{ height: 620, padding: 10 }}
 
         // ============================
-        //   Создание события
+        //     СОЗДАНИЕ СОБЫТИЯ
         // ============================
         onSelectSlot={
           canCreateEvents
@@ -157,27 +158,15 @@ export default function CalendarView({
         }
 
         // ============================
-        //   Нажатие на событие
+        //     КЛИК ПО СОБЫТИЮ
         // ============================
         onSelectEvent={(event) => {
-          // holiday → всегда read-only
-          if (event.category === "holiday") {
-            setPreviewEvent(event);
-            return;
-          }
-
-          // member → только preview
-          if (!canEditEvents) {
-            setPreviewEvent(event);
-            return;
-          }
-
-          // owner/editor → редактирование
-          openModal("edit", event);
+          if (!onEventClick) return;
+          onEventClick(event); // 👈 просто отдаём наверх, а там уже показываем превью
         }}
 
         // ============================
-        //   Стили самих событий
+        //     ОТОБРАЖЕНИЕ СОБЫТИЙ
         // ============================
         eventPropGetter={(event) => ({
           style: {

@@ -1,16 +1,21 @@
-import React, { useContext, useEffect, useState } from "react";
+// src/pages/UserProfile.jsx
+
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { ThemeContext } from "../context/ThemeContext";
-import Navbar from "../components/Navbar";
 
 export default function UserProfile() {
   const { theme } = useContext(ThemeContext);
 
   const [user, setUser] = useState(null);
-  const [events, setEvents] = useState([]);
+  const [myEvents, setMyEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const token = localStorage.getItem("token");
+  const fileInputRef = useRef(null);
 
+  // ================================
+  // LOAD USER
+  // ================================
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) {
@@ -20,35 +25,93 @@ export default function UserProfile() {
     setUser(JSON.parse(stored));
   }, []);
 
+  // ================================
+  // LOAD ONLY MY EVENTS (no holidays, no invitations)
+  // ================================
   useEffect(() => {
     if (!token) return;
 
-    const loadEvents = async () => {
+    const load = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/events", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (!res.ok) {
-          setEvents([]);
-          return;
-        }
+        const events = await res.json();
 
-        const data = await res.json();
-        setEvents(data);
-      } catch (e) {
-        console.error("Error loading events", e);
+        const storedUser = JSON.parse(localStorage.getItem("user"));
+        if (!storedUser) return;
+
+        const userId = storedUser._id;
+
+        const my = events.filter((ev) => {
+          // creator може бути як id, так і об'єкт
+          const creatorId =
+            (ev.creator && (ev.creator._id || ev.creator)) || null;
+
+          // тільки мої, не свята і не копії запрошених подій
+          return (
+            creatorId &&
+            creatorId.toString() === userId.toString() &&
+            ev.category !== "holiday" &&
+            !ev.invitedFrom
+          );
+        });
+
+        setMyEvents(my);
+      } catch (err) {
+        console.error("Error loading events:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadEvents();
+    load();
   }, [token]);
 
   if (!user) return null;
 
-  const cardStyle = {
+  // =====================================
+  // AVATAR URL
+  // =====================================
+  const avatarUrl = user.avatar
+    ? `http://localhost:5000${user.avatar}`
+    : null;
+
+  // =====================================
+  // UPLOAD AVATAR
+  // =====================================
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/users/avatar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) return alert(data.error || "Помилка");
+
+      const updated = { ...user, avatar: data.avatarUrl };
+      setUser(updated);
+      localStorage.setItem("user", JSON.stringify(updated));
+    } catch (e) {
+      console.error("Avatar upload error:", e);
+      alert("Не вдалося завантажити аватар");
+    }
+  };
+
+  // ================================
+  // STYLES
+  // ================================
+  const card = {
     background: theme.cardBg,
     border: theme.cardBorder,
     boxShadow: theme.cardShadow,
@@ -64,100 +127,92 @@ export default function UserProfile() {
     padding: "10px 14px",
     marginBottom: 10,
     borderRadius: 8,
-    color: theme.text,
   };
 
+  // ================================
+  // RENDER
+  // ================================
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
-      
-
-      <div style={{ maxWidth: 900, paddingTop: "40px", margin: "0 auto" }}>
-
-
-
-        
-        {/* USER CARD */}
-        <div style={{ ...cardStyle, display: "flex", gap: 20 }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", paddingTop: 40 }}>
+        {/* ============================= USER CARD ============================= */}
+        <div style={{ ...card, display: "flex", gap: 20 }}>
           <div
             style={{
               width: 80,
               height: 80,
               borderRadius: "50%",
-              background: theme.primarySoft,
+              overflow: "hidden",
+              cursor: "pointer",
+              border: `2px solid ${theme.primary}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 34,
-              fontWeight: 700,
-              color: theme.primary,
+              background: theme.primarySoft,
             }}
+            onClick={() => fileInputRef.current.click()}
           >
-            {user.fullName ? user.fullName[0].toUpperCase() : "U"}
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="avatar"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <span
+                style={{ fontSize: 34, fontWeight: 700, color: theme.primary }}
+              >
+                {user.fullName ? user.fullName[0].toUpperCase() : "U"}
+              </span>
+            )}
+
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleAvatarChange}
+            />
           </div>
 
           <div>
             <h2 style={{ margin: 0 }}>👤 Профіль користувача</h2>
-            <p style={{ opacity: 0.8, marginTop: 4 }}>
-              Управління власною інформацією та подіями.
-            </p>
+            <p style={{ opacity: 0.8 }}>Управління даними та власними подіями.</p>
 
-            <div style={{ marginTop: 14, lineHeight: "1.7" }}>
-              <div><b>Ім’я:</b> {user.fullName || "—"}</div>
-              <div><b>Email:</b> {user.email}</div>
-              <div><b>ID:</b> {user._id}</div>
+            <div style={{ marginTop: 12, lineHeight: "1.7" }}>
+              <div>
+                <b>Ім’я:</b> {user.fullName || "—"}
+              </div>
+              <div>
+                <b>Email:</b> {user.email}
+              </div>
+              <div>
+                <b>ID:</b> {user._id}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* STATISTICS */}
-        <div style={cardStyle}>
-          <h3 style={{ marginBottom: 12 }}>📊 Статистика</h3>
-
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <div
-              style={{
-                flex: "1 1 200px",
-                padding: 16,
-                background: theme.primarySoft,
-                borderRadius: 12,
-                border: `1px solid ${theme.primary}`,
-              }}
-            >
-              <b>Подій:</b> {events.length}
-            </div>
-
-            <div
-              style={{
-                flex: "1 1 200px",
-                padding: 16,
-                background: theme.primarySoft,
-                borderRadius: 12,
-                border: `1px solid ${theme.primary}`,
-              }}
-            >
-              <b>Категорій:</b> 4
-            </div>
-          </div>
-        </div>
-
-        {/* EVENTS LIST */}
-        <div style={cardStyle}>
-          <h3>📅 Мої події</h3>
+        {/* ============================= MY EVENTS ONLY ============================= */}
+        <div style={{ ...card }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>📅 Мої події</h3>
 
           {loading ? (
             <p>Завантаження...</p>
-          ) : events.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>У вас поки немає подій.</p>
+          ) : myEvents.length === 0 ? (
+            <p style={{ opacity: 0.7 }}>У вас ще немає власних подій.</p>
           ) : (
-            events.map((ev) => (
+            myEvents.map((ev) => (
               <div key={ev._id} style={eventItem}>
                 <div style={{ fontWeight: 600 }}>{ev.title}</div>
-                <div style={{ opacity: 0.7, fontSize: 14 }}>
+                <div style={{ opacity: 0.7 }}>
                   📆 {new Date(ev.date || ev.start).toLocaleString()}
                 </div>
-                <div style={{ fontSize: 13, opacity: 0.7 }}>
-                  Категорія: {ev.category}
-                </div>
+                {ev.description && (
+                  <div style={{ opacity: 0.8, marginTop: 4 }}>
+                    📝 {ev.description}
+                  </div>
+                )}
               </div>
             ))
           )}

@@ -1,3 +1,4 @@
+// backend/src/controllers/calendar.controller.js
 import Calendar from "../models/Calendar.js";
 import User from "../models/User.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -7,9 +8,44 @@ function isSameId(a, b) {
   return a.toString() === b.toString();
 }
 
+/* ==========================================
+    SOCKET / NOTIFICATION + EMAIL BROADCAST
+========================================== */
+async function notifyUsersWithEmail(users, payload, actorId) {
+  if (!Array.isArray(users)) users = [users];
+
+  const ids = [...new Set(users.map((u) => u.toString()))];
+
+  // socket — всем
+  ids.forEach((id) => {
+    global.sendNotification(id, payload);
+  });
+
+  // email — всем, кроме actorId
+  const emailTargets = ids.filter(
+    (id) => !actorId || id.toString() !== actorId.toString()
+  );
+
+  if (!emailTargets.length) return;
+
+  const dbUsers = await User.find({ _id: { $in: emailTargets } }).select(
+    "email"
+  );
+
+  const subject = payload.title || "Сповіщення від Chronos";
+
+  await Promise.all(
+    dbUsers
+      .filter((u) => !!u.email)
+      .map((u) =>
+        sendEmail(u.email, subject, payload.message, `<p>${payload.message}</p>`)
+      )
+  );
+}
+
 /* ================================
-    GET CALENDARS OF USER
-================================ */
+    GET CALENDARS
+=============================== */
 export const getCalendars = async (req, res) => {
   try {
     const calendars = await Calendar.find({
@@ -29,7 +65,7 @@ export const getCalendars = async (req, res) => {
 
 /* ================================
     CREATE CALENDAR
-================================ */
+=============================== */
 export const createCalendar = async (req, res) => {
   try {
     const calendar = await Calendar.create({
@@ -43,14 +79,15 @@ export const createCalendar = async (req, res) => {
       isHidden: false,
       isHolidayCalendar: false,
       holidayYear: null,
+      notificationsEnabled: true,
     });
 
-    const fullCalendar = await Calendar.findById(calendar._id).populate(
+    const populated = await Calendar.findById(calendar._id).populate(
       "owner editors members",
       "email fullName name"
     );
 
-    res.status(201).json(fullCalendar);
+    res.status(201).json(populated);
   } catch (e) {
     res.status(400).json({ error: "Ошибка создания календаря" });
   }
@@ -58,21 +95,23 @@ export const createCalendar = async (req, res) => {
 
 /* ================================
     UPDATE CALENDAR
-================================ */
+=============================== */
 export const updateCalendar = async (req, res) => {
   try {
     const { id } = req.params;
 
     const calendar = await Calendar.findById(id);
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
+    if (!calendar)
+      return res.status(404).json({ error: "Календарь не найден" });
 
     if (!isSameId(calendar.owner, req.user._id)) {
-      return res.status(403).json({ error: "Только владелец может редактировать" });
+      return res
+        .status(403)
+        .json({ error: "Только владелец может редактировать" });
     }
 
-    if (calendar.isMain) {
-      req.body.name = calendar.name;
-    }
+    // Главное и календарь праздников по-своему жёсткие
+    if (calendar.isMain) req.body.name = calendar.name;
 
     if (calendar.isHolidayCalendar) {
       req.body.isHolidayCalendar = calendar.isHolidayCalendar;
@@ -87,6 +126,20 @@ export const updateCalendar = async (req, res) => {
       "email fullName name"
     );
 
+    // 🔔 BROADCAST + EMAIL если включено
+    if (calendar.notificationsEnabled) {
+      const users = [calendar.owner, ...calendar.editors, ...calendar.members];
+
+      const payload = {
+        type: "calendar_updated",
+        calendar: calendar._id,
+        title: calendar.name,
+        message: `Календар "${calendar.name}" був оновлений`,
+      };
+
+      await notifyUsersWithEmail(users, payload, req.user._id);
+    }
+
     res.json(populated);
   } catch (e) {
     res.status(400).json({ error: "Ошибка обновления" });
@@ -95,24 +148,45 @@ export const updateCalendar = async (req, res) => {
 
 /* ================================
     DELETE CALENDAR
-================================ */
+=============================== */
 export const deleteCalendar = async (req, res) => {
   try {
     const { id } = req.params;
 
     const calendar = await Calendar.findById(id);
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
+    if (!calendar)
+      return res.status(404).json({ error: "Календарь не найден" });
 
     if (calendar.isMain)
-      return res.status(403).json({ error: "Главный календарь нельзя удалить" });
+      return res
+        .status(403)
+        .json({ error: "Главный календарь нельзя удалить" });
 
     if (calendar.isHolidayCalendar)
-      return res.status(403).json({ error: "Календарь праздников нельзя удалить" });
+      return res
+        .status(403)
+        .json({ error: "Календарь праздников нельзя удалить" });
 
     if (!isSameId(calendar.owner, req.user._id))
-      return res.status(403).json({ error: "Только владелец может удалить" });
+      return res
+        .status(403)
+        .json({ error: "Только владелец может удалить" });
+
+    const users = [calendar.owner, ...calendar.editors, ...calendar.members];
 
     await calendar.deleteOne();
+
+    // 🔔 Уведомление всем участникам
+    if (calendar.notificationsEnabled) {
+      const payload = {
+        type: "calendar_deleted",
+        calendar: calendar._id,
+        title: calendar.name,
+        message: `Календар "${calendar.name}" був видалений`,
+      };
+
+      await notifyUsersWithEmail(users, payload, req.user._id);
+    }
 
     res.json({ message: "Календарь удалён" });
   } catch (e) {
@@ -122,19 +196,23 @@ export const deleteCalendar = async (req, res) => {
 
 /* ================================
     HIDE CALENDAR
-================================ */
+=============================== */
 export const hideCalendar = async (req, res) => {
   try {
     const { id } = req.params;
     const calendar = await Calendar.findById(id);
 
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
-
+    if (!calendar)
+      return res.status(404).json({ error: "Календарь не найден" });
     if (calendar.isMain)
-      return res.status(403).json({ error: "Главный календарь нельзя скрыть" });
+      return res
+        .status(403)
+        .json({ error: "Главный календарь нельзя скрыть" });
 
     if (!isSameId(calendar.owner, req.user._id))
-      return res.status(403).json({ error: "Только владелец может скрыть" });
+      return res
+        .status(403)
+        .json({ error: "Только владелец может скрыть" });
 
     calendar.isHidden = true;
     await calendar.save();
@@ -151,17 +229,20 @@ export const hideCalendar = async (req, res) => {
 };
 
 /* ================================
-    SHOW HIDDEN
-================================ */
+    SHOW CALENDAR
+=============================== */
 export const showCalendar = async (req, res) => {
   try {
     const { id } = req.params;
     const calendar = await Calendar.findById(id);
 
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
+    if (!calendar)
+      return res.status(404).json({ error: "Календарь не найден" });
 
     if (!isSameId(calendar.owner, req.user._id))
-      return res.status(403).json({ error: "Только владелец может вернуть" });
+      return res
+        .status(403)
+        .json({ error: "Только владелец может вернуть" });
 
     calendar.isHidden = false;
     await calendar.save();
@@ -178,25 +259,30 @@ export const showCalendar = async (req, res) => {
 };
 
 /* ================================
-    📧 INVITE USER
-================================ */
+    INVITE USER
+=============================== */
 export const inviteUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { email, role } = req.body;
 
     const calendar = await Calendar.findById(id);
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
+    if (!calendar)
+      return res.status(404).json({ error: "Календар не знайдено" });
 
     if (calendar.isMain || calendar.isHolidayCalendar)
-      return res.status(403).json({ error: "Этот календарь нельзя расшаривать" });
+      return res
+        .status(403)
+        .json({ error: "Цей календар не можна розшарювати" });
 
     if (!isSameId(calendar.owner, req.user._id))
-      return res.status(403).json({ error: "Только владелец может приглашать" });
+      return res
+        .status(403)
+        .json({ error: "Тільки власник може запрошувати" });
 
     const user = await User.findOne({ email });
     if (!user)
-      return res.status(404).json({ error: "Пользователь не найден" });
+      return res.status(404).json({ error: "Користувача не знайдено" });
 
     if (role === "editor") {
       if (!calendar.editors.includes(user._id)) calendar.editors.push(user._id);
@@ -213,40 +299,54 @@ export const inviteUser = async (req, res) => {
       "email fullName name"
     );
 
-    const emailInfo = await sendEmail(
-      email,
-      "Приглашение в календарь Chronos",
-      `Вас пригласили в календарь "${calendar.name}".`,
-      `<h3>Вы приглашены в календарь "${calendar.name}"</h3>
-       <p>Ваша роль: <b>${role}</b></p>`
-    );
+    // 🔔 email (як і було) + socket/email нотифікація
+    if (calendar.notificationsEnabled) {
+      // 1) Пряме email-приглашення
+      await sendEmail(
+        email,
+        "Запрошення до календаря",
+        `Вас додано до календаря "${calendar.name}". Роль: ${role}`,
+        `<h3>Вас додано до календаря "${calendar.name}"</h3>
+         <p>Роль: <b>${role}</b></p>`
+      );
 
-    res.json({
-      message: "Пользователь приглашён",
-      emailPreview: emailInfo.previewUrl,
-      calendar: populated,
-    });
+      // 2) Системное уведомление (socket + email, но email не владельцу)
+      const payload = {
+        type: "calendar_invite",
+        calendar: calendar._id,
+        title: calendar.name,
+        message: `Вас додано до календаря "${calendar.name}" (роль: ${role})`,
+      };
+
+      await notifyUsersWithEmail(user._id, payload, req.user._id);
+    }
+
+    res.json({ message: "Користувача запрошено", calendar: populated });
   } catch (e) {
+    console.error("inviteUser error:", e);
     res.status(400).json({ error: "Ошибка приглашения" });
   }
 };
 
 /* ================================
-    👥 UPDATE MEMBER ROLE
-================================ */
+    UPDATE MEMBER ROLE
+=============================== */
 export const updateMemberRole = async (req, res) => {
   try {
     const { id } = req.params;
     const { userId, role } = req.body;
 
     const calendar = await Calendar.findById(id);
-    if (!calendar) return res.status(404).json({ error: "Календарь не найден" });
+    if (!calendar)
+      return res.status(404).json({ error: "Календар не знайдено" });
 
     if (calendar.isMain || calendar.isHolidayCalendar)
-      return res.status(403).json({ error: "В этом календаре нельзя менять роли" });
+      return res.status(403).json({ error: "Не можна змінювати ролі" });
 
     if (!isSameId(calendar.owner, req.user._id))
-      return res.status(403).json({ error: "Только владелец может менять роли" });
+      return res
+        .status(403)
+        .json({ error: "Тільки власник може змінювати ролі" });
 
     if (role === "editor") {
       if (!calendar.editors.includes(userId)) calendar.editors.push(userId);
@@ -263,46 +363,47 @@ export const updateMemberRole = async (req, res) => {
       "email fullName name"
     );
 
-    res.json({ message: "Роль обновлена", calendar: populated });
+    // 🔔 notify target user (socket + email)
+    if (calendar.notificationsEnabled) {
+      const payload = {
+        type: "role_changed",
+        calendar: calendar._id,
+        title: calendar.name,
+        message: `Вашу роль у календарі "${calendar.name}" змінено на "${role}"`,
+      };
+
+      await notifyUsersWithEmail(userId, payload, req.user._id);
+    }
+
+    res.json({ message: "Роль оновлено", calendar: populated });
   } catch (e) {
     res.status(400).json({ error: "Ошибка изменения роли" });
   }
 };
 
 /* ================================
-    👥 REMOVE MEMBER OR EDITOR
-================================ */
-/* ===========================================
-    👥 REMOVE MEMBER: owner removes OR user leaves
-=========================================== */
+    REMOVE MEMBER
+=============================== */
 export const removeCalendarMember = async (req, res) => {
   try {
     const { id } = req.params;
     const { userId } = req.body;
 
-    const currentUserId = req.user._id.toString(); // кто делает запрос
-    const targetUserId = userId.toString();        // кого удаляем
+    const currentUserId = req.user._id.toString();
+    const targetUserId = userId.toString();
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календарь не найден" });
+      return res.status(404).json({ error: "Календар не знайдено" });
 
-    if (calendar.isMain || calendar.isHolidayCalendar)
-      return res.status(403).json({ error: "Этот календарь не поддерживает участников" });
-
-    const isOwner = calendar.owner.toString() === currentUserId;
+    const isOwner = isSameId(calendar.owner, currentUserId);
     const isSelf = currentUserId === targetUserId;
 
-    // 🔥 НОВАЯ ЛОГИКА:
-    // - владелец может удалять кого угодно
-    // - пользователь может удалить СЕБЯ (выйти)
-    if (!isOwner && !isSelf) {
+    if (!isOwner && !isSelf)
       return res
         .status(403)
-        .json({ error: "Тільки власник може видаляти інших учасників" });
-    }
+        .json({ error: "Тільки власник може видаляти" });
 
-    // Удаляем участника из списков
     calendar.editors = calendar.editors.filter(
       (u) => u.toString() !== targetUserId
     );
@@ -317,14 +418,52 @@ export const removeCalendarMember = async (req, res) => {
       "email fullName name"
     );
 
+    // 🔔 уведомление удалённому (если его удалили, а не он сам вышел)
+    if (calendar.notificationsEnabled && !isSelf) {
+      const payload = {
+        type: "removed_from_calendar",
+        calendar: calendar._id,
+        title: calendar.name,
+        message: `Вас видалено з календаря "${calendar.name}"`,
+      };
+
+      await notifyUsersWithEmail(targetUserId, payload, req.user._id);
+    }
+
     return res.json({
-      message: isSelf
-        ? "Ви вийшли з календаря"
-        : "Учасника видалено",
+      message: isSelf ? "Ви вийшли з календаря" : "Учасника видалено",
       calendar: populated,
     });
   } catch (e) {
-    console.error("removeCalendarMember error:", e);
     res.status(400).json({ error: "Ошибка удаления участника" });
+  }
+};
+
+/* ================================
+    UPDATE NOTIFICATIONS
+=============================== */
+export const updateCalendarNotifications = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enabled } = req.body;
+
+    const calendar = await Calendar.findById(id);
+    if (!calendar)
+      return res.status(404).json({ error: "Календар не знайдено" });
+
+    if (!isSameId(calendar.owner, req.user._id))
+      return res
+        .status(403)
+        .json({ error: "Тільки власник може змінювати" });
+
+    calendar.notificationsEnabled = Boolean(enabled);
+    await calendar.save();
+
+    res.json({
+      success: true,
+      notificationsEnabled: calendar.notificationsEnabled,
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Ошибка обновления уведомлений" });
   }
 };

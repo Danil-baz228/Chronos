@@ -1,5 +1,5 @@
 // =======================
-//   CalendarPage.jsx — FIXED VERSION
+//   CalendarPage.jsx — FIXED
 // =======================
 
 import React, {
@@ -19,49 +19,68 @@ import SettingsModal from "../components/settings/SettingsModal";
 
 import { ThemeContext } from "../context/ThemeContext";
 
+// ===========================================
+//   Convert date to input-local format (NO UTC SHIFT)
+// ===========================================
+function toLocalInputValue(date) {
+  if (!date) return "";
+  const d = new Date(date);
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+}
+
 export default function CalendarPage() {
   const { theme } = useContext(ThemeContext);
 
-  // === SETTINGS MODAL ===
+  // SETTINGS MODAL
   const [settingsOpen, setSettingsOpen] = useState(false);
-
   useEffect(() => {
     const handler = () => setSettingsOpen(true);
     window.addEventListener("open_settings", handler);
     return () => window.removeEventListener("open_settings", handler);
   }, []);
 
-  // calendars
+  // CALENDAR MANAGER MODAL
+  const [managerOpen, setManagerOpen] = useState(false);
+
+  // CALENDAR LIST
   const [calendars, setCalendars] = useState([]);
   const [selectedCalendar, setSelectedCalendar] = useState(null);
 
-  // events
+  // EVENTS
   const [events, setEvents] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [holidayCache, setHolidayCache] = useState({});
 
-  // ui
+  // UI
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [editEvent, setEditEvent] = useState(null);
   const [previewEvent, setPreviewEvent] = useState(null);
 
-  // filters
+  // FILTERS
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  // date control
+  // DATE
   const [currentView, setCurrentView] = useState("month");
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // invites
+  // INVITATION
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
   const token = localStorage.getItem("token");
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const currentUserId = currentUser?._id;
+  const currentUserEmail = currentUser?.email;
 
   const colorByCategory = {
     arrangement: "#3b82f6",
@@ -80,7 +99,7 @@ export default function CalendarPage() {
   });
 
   // ============================
-  //   LOAD CALENDARS + EVENTS
+  // LOAD CALENDARS + EVENTS
   // ============================
   useEffect(() => {
     const fetchAll = async () => {
@@ -108,7 +127,7 @@ export default function CalendarPage() {
         setSelectedCalendar(calData[0]?._id || null);
         setEvents(evData);
       } catch (err) {
-        console.error("Ошибка загрузки:", err);
+        console.error("Load error:", err);
       } finally {
         setLoading(false);
       }
@@ -118,7 +137,7 @@ export default function CalendarPage() {
   }, [token]);
 
   // ============================
-  //   ROLE CALCULATION
+  // ROLE CALCULATION
   // ============================
   const [userRole, setUserRole] = useState("member");
 
@@ -128,6 +147,7 @@ export default function CalendarPage() {
     const cal = calendars.find(
       (c) => c._id?.toString() === selectedCalendar.toString()
     );
+
     if (!cal) return;
 
     if (cal.isHolidayCalendar) {
@@ -138,16 +158,19 @@ export default function CalendarPage() {
     const owner =
       cal.owner?._id?.toString() === currentUserId ||
       cal.owner?.toString() === currentUserId;
+
     if (owner) return setUserRole("owner");
 
     const editor = (cal.editors || []).some(
       (u) => (u._id || u).toString() === currentUserId
     );
+
     if (editor) return setUserRole("editor");
 
     const member = (cal.members || []).some(
       (u) => (u._id || u).toString() === currentUserId
     );
+
     if (member) return setUserRole("member");
 
     setUserRole("member");
@@ -157,7 +180,7 @@ export default function CalendarPage() {
   const canEditEvents = userRole === "owner" || userRole === "editor";
 
   // ============================
-  //    LOAD HOLIDAYS API
+  // LOAD HOLIDAYS
   // ============================
   useEffect(() => {
     if (!token) return;
@@ -171,7 +194,7 @@ export default function CalendarPage() {
 
     let cancelled = false;
 
-    const loadHolidays = async () => {
+    const load = async () => {
       try {
         const res = await fetch(
           `http://localhost:5000/api/events/holidays?year=${year}`,
@@ -192,48 +215,44 @@ export default function CalendarPage() {
           allDay: true,
           category: "holiday",
           color: "#ef4444",
-          calendar: null,
         }));
 
-        if (cancelled) return;
-
-        setHolidayCache((prev) => ({
-          ...prev,
-          [year]: mapped,
-        }));
-        setHolidays(mapped);
+        if (!cancelled) {
+          setHolidayCache((prev) => ({ ...prev, [year]: mapped }));
+          setHolidays(mapped);
+        }
       } catch {
         if (!cancelled) setHolidays([]);
       }
     };
 
-    loadHolidays();
+    load();
     return () => (cancelled = true);
   }, [currentDate, token, holidayCache]);
 
   // ============================
-  //    MERGE EVENTS CORRECTLY
+  // MERGE EVENTS
   // ============================
   const selectedCalObj = calendars.find((c) => c._id === selectedCalendar);
 
-  const allEvents =
-    selectedCalObj?.isHolidayCalendar
-      ? holidays // ONLY holidays
-      : [...events, ...holidays]; // Main Calendar → events + holidays
+  // ❌ НЕ додаємо свята у звичайні календарі
+const allEvents = selectedCalObj?.isHolidayCalendar
+  ? holidays
+  : events;
 
   // ============================
-  //        EVENT FILTER
+  // FILTER
   // ============================
   const filteredEvents = allEvents.filter((e) => {
-    const isHolidayCal = selectedCalObj?.isHolidayCalendar;
-
-    if (isHolidayCal) {
+    if (selectedCalObj?.isHolidayCalendar) {
       return e.category === "holiday";
     }
 
-    const matchCal = e.calendar
-      ? e.calendar.toString() === selectedCalendar?.toString()
-      : true;
+    const matchCal =
+      !e.calendar ||
+      (typeof e.calendar === "string"
+        ? e.calendar === selectedCalendar
+        : e.calendar._id?.toString() === selectedCalendar);
 
     const matchSearch = e.title
       ?.toLowerCase()
@@ -245,15 +264,11 @@ export default function CalendarPage() {
   });
 
   // ============================
-  //   SAVE EVENT
+  // SAVE EVENT
   // ============================
   const handleSaveEvent = async (e) => {
     e.preventDefault();
-
-    if (!canCreateEvents) {
-      alert("У вас немає прав");
-      return;
-    }
+    if (!canCreateEvents) return alert("У вас немає прав");
 
     const url =
       modalMode === "edit"
@@ -262,74 +277,56 @@ export default function CalendarPage() {
 
     const method = modalMode === "edit" ? "PUT" : "POST";
 
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...newEvent,
-          calendar: selectedCalendar,
-        }),
-      });
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...newEvent,
+        calendar: selectedCalendar,
+      }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        alert(data.error || "Помилка");
-        return;
-      }
+    if (!res.ok) return alert(data.error || "Помилка");
 
-      if (modalMode === "edit") {
-        setEvents((prev) =>
-          prev.map((ev) => (ev._id === data._id ? data : ev))
-        );
-      } else {
-        setEvents((prev) => [...prev, data]);
-      }
-
-      closeModal();
-    } catch {
-      alert("Помилка");
+    if (modalMode === "edit") {
+      setEvents((prev) =>
+        prev.map((ev) => (ev._id === data._id ? data : ev))
+      );
+    } else {
+      setEvents((prev) => [...prev, data]);
     }
+
+    closeModal();
   };
 
   // ============================
-  //   DELETE EVENT
+  // DELETE EVENT (для владельца/редактора)
   // ============================
   const handleDeleteEvent = async (id) => {
-    if (!canEditEvents) {
-      alert("У вас немає прав");
-      return;
-    }
-
+    if (!canEditEvents) return alert("У вас немає прав");
     if (!window.confirm("Видалити подію?")) return;
 
-    try {
-      const res = await fetch(`http://localhost:5000/api/events/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    const res = await fetch(`http://localhost:5000/api/events/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        alert(data.error || "Помилка");
-        return;
-      }
+    if (!res.ok) return alert(data.error || "Помилка");
 
-      setEvents((prev) => prev.filter((e) => e._id !== id));
-      setPreviewEvent(null);
-      closeModal();
-    } catch {
-      alert("Помилка");
-    }
+    setEvents((prev) => prev.filter((e) => e._id !== id));
+    setPreviewEvent(null);
+    closeModal();
   };
 
   // ============================
-  //     MODAL OPEN
+  // ОТКРЫТИЕ МОДАЛКИ СОБЫТИЯ
   // ============================
   const openModal = useCallback(
     (mode = "add", event = null) => {
@@ -341,12 +338,11 @@ export default function CalendarPage() {
       if (mode === "edit" && event) {
         setEditEvent(event);
 
-        const start =
-          event.start && !event.date
-            ? new Date(event.start).toISOString().slice(0, 16)
-            : event.date
-            ? new Date(event.date).toISOString().slice(0, 16)
-            : "";
+        const start = event.start
+          ? toLocalInputValue(event.start)
+          : event.date
+          ? toLocalInputValue(event.date)
+          : "";
 
         const cal = calendars.find(
           (c) => c._id?.toString() === (event.calendar || selectedCalendar)
@@ -372,7 +368,7 @@ export default function CalendarPage() {
         setEditEvent(null);
         setNewEvent({
           title: "",
-          date: event?.start?.toISOString()?.slice(0, 16) || "",
+          date: event?.start ? toLocalInputValue(event.start) : "",
           duration: 60,
           category: "arrangement",
           description: "",
@@ -391,7 +387,14 @@ export default function CalendarPage() {
   };
 
   // ============================
-  //      LOADING SCREEN
+  // ОТКРЫТЬ ПРЕВЬЮ (клик по событию)
+  // ============================
+  const handleEventClick = useCallback((event) => {
+    setPreviewEvent(event);
+  }, []);
+
+  // ============================
+  // LOADING SCREEN
   // ============================
   if (loading) {
     return (
@@ -410,19 +413,103 @@ export default function CalendarPage() {
     );
   }
 
+const handleInvite = async () => {
+  if (!previewEvent) return;
+  if (!inviteEmail.trim()) return;
+
+  setInviteLoading(true);
+
+  try {
+    const res = await fetch(
+      `http://localhost:5000/api/events/${previewEvent._id}/invite`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Помилка запрошення");
+
+    const updated = data.event || data; // 🔥 підтримує обидва варіанти
+
+    // 🔥 ОНОВЛЮЄМО СПИСОК ПОДІЙ
+    setEvents((prev) =>
+      prev.map((e) => (e._id === updated._id ? updated : e))
+    );
+
+    // 🔥 ОНОВЛЮЄМО ПРЕВ’Ю
+    setPreviewEvent(updated);
+
+    // 🔥 ЧИСТИМО ЕМЕЙЛ
+    setInviteEmail("");
+  } catch (err) {
+    console.error("Invite error:", err);
+    alert(err.message);
+  }
+
+  setInviteLoading(false);
+};
+
+
+
+// ============================
+//   УДАЛЕНИЕ ПРИГЛАШЁННОГО
+// ============================
+const handleRemoveInviteUser = async (value, type) => {
+  if (!previewEvent) return;
+
+  try {
+    const res = await fetch(
+      `http://localhost:5000/api/events/${previewEvent._id}/remove-invite`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ value, type }),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Помилка");
+
+    // оновлюємо список подій
+    setEvents((prev) =>
+      prev.map((e) =>
+        e._id === data.event._id ? data.event : e
+      )
+    );
+
+    // оновлюємо прев'ю
+    setPreviewEvent(data.event);
+
+  } catch (err) {
+    console.error("removeInvite error:", err);
+    alert("Помилка видалення користувача");
+  }
+};
+
+
   // ============================
-  //         RENDER PAGE
+  // RENDER
   // ============================
   return (
     <div style={{ background: theme.pageBg, minHeight: "100vh" }}>
-      
-
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
 
       <CalendarManager
+        isOpen={managerOpen}
+        onClose={() => setManagerOpen(false)}
         calendars={calendars}
         setCalendars={setCalendars}
         token={token}
@@ -441,8 +528,8 @@ export default function CalendarPage() {
           setCurrentView={setCurrentView}
           currentDate={currentDate}
           onNewEventClick={() => canCreateEvents && openModal("add")}
-          token={token}
           canCreateEvents={canCreateEvents}
+          onOpenManager={() => setManagerOpen(true)}
         />
 
         <CalendarView
@@ -453,7 +540,7 @@ export default function CalendarPage() {
           setCurrentView={setCurrentView}
           currentDate={currentDate}
           setCurrentDate={setCurrentDate}
-          setPreviewEvent={setPreviewEvent}
+          onEventClick={handleEventClick}
           openModal={openModal}
           colorByCategory={colorByCategory}
           canCreateEvents={canCreateEvents}
@@ -472,24 +559,52 @@ export default function CalendarPage() {
         editEvent={editEvent}
       />
 
-      <EventPreview
-        event={previewEvent}
-        onClose={() => setPreviewEvent(null)}
-        onEdit={() =>
-          canEditEvents && previewEvent && openModal("edit", previewEvent)
-        }
-        onDelete={() =>
-          canEditEvents && previewEvent && handleDeleteEvent(previewEvent._id)
-        }
-        onDeleteSelf={() =>
-          canEditEvents && previewEvent && handleDeleteEvent(previewEvent._id)
-        }
-        inviteEmail={inviteEmail}
-        setInviteEmail={setInviteEmail}
-        onInvite={() => {}}
-        onRemoveInviteUser={() => {}}
-        inviteLoading={inviteLoading}
-      />
+ <EventPreview
+  event={previewEvent}
+  onClose={() => setPreviewEvent(null)}
+
+  // 🔧 редактирование
+  onEdit={() =>
+    (canEditEvents ||
+      previewEvent?.creator?.toString() === currentUserId?.toString()) &&
+    openModal("edit", previewEvent)
+  }
+
+  // 🔧 удаление оригинала
+  onDelete={() =>
+    (canEditEvents ||
+      previewEvent?.creator?.toString() === currentUserId?.toString()) &&
+    handleDeleteEvent(previewEvent._id)
+  }
+
+  // 🔧 удаление своей копии гостем
+  onDeleteSelf={() =>
+    previewEvent && handleDeleteEvent(previewEvent._id)
+  }
+
+  // 🔥 ИНВАЙТ — ВОТ ЭТО ГЛАВНОЕ!
+  onInvite={handleInvite}
+
+  // 🔥 удаление приглашённых
+  onRemoveInviteUser={handleRemoveInviteUser}
+
+  inviteEmail={inviteEmail}
+  setInviteEmail={setInviteEmail}
+  inviteLoading={inviteLoading}
+
+  // 🔧 права (кто может редактировать)
+  canManage={
+    canEditEvents ||
+    previewEvent?.creator?.toString() === currentUserId?.toString()
+  }
+
+  currentUserId={currentUserId}
+  currentUserEmail={currentUserEmail}
+/>
+
+
+
+
     </div>
   );
 }

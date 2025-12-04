@@ -1,13 +1,20 @@
+// src/components/CalendarManager.jsx
+
 import React, { useState, useContext, useMemo } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { AuthContext } from "../context/AuthContext";
 
-export default function CalendarManager({ calendars, setCalendars, token }) {
+export default function CalendarManager({
+  isOpen,
+  onClose,
+  calendars,
+  setCalendars,
+  token,
+}) {
   const { theme } = useContext(ThemeContext);
   const { user } = useContext(AuthContext);
   const currentUserId = user?._id;
 
-  const [showModal, setShowModal] = useState(false);
   const [editingCalendar, setEditingCalendar] = useState(null);
   const [form, setForm] = useState({
     name: "",
@@ -16,18 +23,17 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
   });
 
   const [hiddenCalendars, setHiddenCalendars] = useState([]);
-  const [showHiddenList, setShowHiddenList] = useState(false);
 
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteCalendar, setInviteCalendar] = useState(null);
+  // === MEMBERS MODAL ===
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [membersCalendar, setMembersCalendar] = useState(null);
+
+  // === INVITE FORM (перенесено в MembersModal) ===
   const [inviteForm, setInviteForm] = useState({
     email: "",
     role: "member",
   });
   const [inviteResult, setInviteResult] = useState(null);
-
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [membersCalendar, setMembersCalendar] = useState(null);
 
   // =====================================================================
   // HELPERS
@@ -72,35 +78,23 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
   }, [membersCalendar, currentUserId]);
 
   // =====================================================================
-  // MAIN MODAL (ADD/EDIT)
+  // CREATE / EDIT CALENDAR
   // =====================================================================
 
-  const openModal = (calendar = null) => {
-    if (calendar) {
-      if (isMainCalendar(calendar))
-        return alert("Головний календар не можна редагувати");
-      if (isHolidayCalendar(calendar))
-        return alert("Календар свят не можна редагувати");
-      if (!isOwner(calendar))
-        return alert("Лише власник може редагувати календар");
+  const openModalForEdit = (calendar) => {
+    if (isMainCalendar(calendar))
+      return alert("Головний календар не можна редагувати");
+    if (isHolidayCalendar(calendar))
+      return alert("Календар свят не можна редагувати");
+    if (!isOwner(calendar))
+      return alert("Лише власник може редагувати календар");
 
-      setEditingCalendar(calendar);
-      setForm({
-        name: calendar.name,
-        color: calendar.color,
-        description: calendar.description || "",
-      });
-    } else {
-      setEditingCalendar(null);
-      setForm({ name: "", color: "#3b82f6", description: "" });
-    }
-
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingCalendar(null);
+    setEditingCalendar(calendar);
+    setForm({
+      name: calendar.name,
+      color: calendar.color,
+      description: calendar.description || "",
+    });
   };
 
   const handleSave = async (e) => {
@@ -108,7 +102,7 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
 
     const url = editingCalendar
       ? `http://localhost:5000/api/calendars/${editingCalendar._id}`
-      : `http://localhost:5000/api/calendars`;
+      : "http://localhost:5000/api/calendars";
 
     const res = await fetch(url, {
       method: editingCalendar ? "PUT" : "POST",
@@ -126,11 +120,10 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
       setCalendars((prev) =>
         prev.map((c) => (c._id === data._id ? data : c))
       );
-    } else {
-      setCalendars((prev) => [...prev, data]);
-    }
+    } else setCalendars((prev) => [...prev, data]);
 
-    closeModal();
+    setEditingCalendar(null);
+    setForm({ name: "", color: "#3b82f6", description: "" });
   };
 
   const handleDelete = async (calendar) => {
@@ -145,10 +138,7 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
 
     const res = await fetch(
       `http://localhost:5000/api/calendars/${calendar._id}`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }
+      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
     );
 
     const data = await res.json();
@@ -193,61 +183,6 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
   };
 
   // =====================================================================
-  // INVITE MODAL
-  // =====================================================================
-
-  const openInviteModal = (calendar) => {
-    if (!isOwner(calendar))
-      return alert("Лише власник може ділитися календарем");
-    if (isMainCalendar(calendar))
-      return alert("Головним календарем не можна ділитися");
-    if (isHolidayCalendar(calendar))
-      return alert("Календарем свят не можна ділитися");
-
-    setInviteCalendar(calendar);
-    setInviteForm({ email: "", role: "member" });
-    setInviteResult(null);
-    setShowInviteModal(true);
-  };
-
-  const closeInviteModal = () => {
-    setShowInviteModal(false);
-    setInviteCalendar(null);
-    setInviteResult(null);
-  };
-
-  const handleInviteSubmit = async (e) => {
-    e.preventDefault();
-
-    const res = await fetch(
-      `http://localhost:5000/api/calendars/${inviteCalendar._id}/invite`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(inviteForm),
-      }
-    );
-
-    const data = await res.json();
-    if (data.error) return alert(data.error);
-
-    if (data.calendar && data.calendar._id) {
-      setCalendars((prev) =>
-        prev.map((c) => (c._id === data.calendar._id ? data.calendar : c))
-      );
-      setInviteCalendar(data.calendar);
-    }
-
-    setInviteResult({
-      message: data.message,
-      previewUrl: data.emailPreview,
-    });
-  };
-
-  // =====================================================================
   // MEMBERS MODAL
   // =====================================================================
 
@@ -262,12 +197,43 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
       return alert("Календар свят не має учасників");
 
     setMembersCalendar(calendar);
+    setInviteResult(null);
+    setInviteForm({ email: "", role: "member" });
     setShowMembersModal(true);
   };
 
   const closeMembersModal = () => {
     setMembersCalendar(null);
     setShowMembersModal(false);
+  };
+
+  const handleInviteSubmitFromMembers = async (e) => {
+    e.preventDefault();
+
+    const res = await fetch(
+      `http://localhost:5000/api/calendars/${membersCalendar._id}/invite`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(inviteForm),
+      }
+    );
+
+    const data = await res.json();
+    if (data.error) return alert(data.error);
+
+    if (data.calendar) {
+      setCalendars((prev) =>
+        prev.map((c) => (c._id === data.calendar._id ? data.calendar : c))
+      );
+      setMembersCalendar(data.calendar);
+    }
+
+    setInviteResult({ message: data.message });
+    setInviteForm({ email: "", role: "member" });
   };
 
   const updateMemberRole = async (userId, role) => {
@@ -299,8 +265,7 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
 
   const removeMember = async (userId) => {
     const isSelf =
-      currentUserId &&
-      userId?.toString() === currentUserId.toString();
+      currentUserId && userId?.toString() === currentUserId.toString();
 
     if (myRoleInMembersCalendar !== "owner" && !isSelf) return;
 
@@ -330,314 +295,273 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
   };
 
   // =====================================================================
-  // RENDER UI
+  // RENDER
   // =====================================================================
 
+  if (!isOpen) return null;
+
   return (
-    <div>
-      {/* основні кнопки */}
-      <button style={button(theme)} onClick={() => setShowModal(true)}>
-        🗂 Управління календарями
-      </button>
+    <>
+      {/* MAIN MODAL */}
+      <div style={overlay(theme)} onClick={onClose}>
+        <div style={modal(theme)} onClick={(e) => e.stopPropagation()}>
+          <h3 style={{ marginTop: 0 }}>🗂 Управління календарями</h3>
 
-      <button
-        style={hiddenBtn(theme)}
-        onClick={() => setShowHiddenList(!showHiddenList)}
-      >
-        👁 Приховані ({hiddenCalendars.length})
-      </button>
+          {/* Форма створення/редагування */}
+          <form
+            onSubmit={handleSave}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            <input
+              placeholder="Назва"
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              required
+              style={input(theme)}
+            />
 
-      {/* приховані */}
-      {showHiddenList && (
-        <div style={hiddenBox(theme)}>
+            <input
+              type="color"
+              value={form.color}
+              onChange={(e) =>
+                setForm({ ...form, color: e.target.value })
+              }
+              style={{
+                width: 50,
+                height: 40,
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+              }}
+            />
+
+            <textarea
+              placeholder="Опис"
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+              style={textarea(theme)}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <button style={saveBtn(theme)} type="submit">
+                💾 Зберегти
+              </button>
+
+              {editingCalendar &&
+                isOwner(editingCalendar) &&
+                !isMainCalendar(editingCalendar) &&
+                !isHolidayCalendar(editingCalendar) && (
+                  <button
+                    type="button"
+                    style={deleteBtn(theme)}
+                    onClick={() => handleDelete(editingCalendar)}
+                  >
+                    🗑 Видалити
+                  </button>
+                )}
+
+              <button
+                type="button"
+                style={cancelBtn(theme)}
+                onClick={() => {
+                  setEditingCalendar(null);
+                  setForm({
+                    name: "",
+                    color: "#3b82f6",
+                    description: "",
+                  });
+                }}
+              >
+                Очистити
+              </button>
+            </div>
+          </form>
+
+          {/* Список календарів */}
+          <h4 style={{ marginTop: 0 }}>📅 Ваші календарі</h4>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {calendars.map((c) => {
+              const ownerHere = isOwner(c);
+              const participantHere = isParticipant(c);
+
+              return (
+                <li key={c._id} style={listItem(theme)}>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        background: c.color,
+                        borderRadius: "50%",
+                      }}
+                    />
+                    <b>
+                      {c.name}
+                      {isMainCalendar(c) ? " ⭐" : ""}
+                      {isHolidayCalendar(c) ? " 🎉" : ""}
+                    </b>
+                  </div>
+
+                  {/* Кнопки управления */}
+                  {isMainCalendar(c) ? null : (
+  <div style={{ display: "flex", gap: 6 }}>
+
+    {/* ==== HOLIDAY CALENDAR ==== */}
+    {isHolidayCalendar(c) ? (
+      <>
+        {/* Только владелец может скрыть holiday calendar */}
+        {ownerHere && (
+          <button
+            style={hideBtn(theme)}
+            onClick={() => hideCalendar(c)}
+          >
+            🙈
+          </button>
+        )}
+      </>
+    ) : (
+      <>
+        {/* ==== Обычные календари ==== */}
+        {ownerHere && (
+          <>
+            <button
+              style={smallBtn(theme)}
+              onClick={() => openModalForEdit(c)}
+            >
+              ✏
+            </button>
+
+            <button
+              style={hideBtn(theme)}
+              onClick={() => hideCalendar(c)}
+            >
+              🙈
+            </button>
+          </>
+        )}
+
+        {participantHere && (
+          <button
+            style={membersBtn(theme)}
+            onClick={() => openMembersModal(c)}
+          >
+            👥
+          </button>
+        )}
+      </>
+    )}
+  </div>
+)}
+
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Приховані */}
+          <h4 style={{ marginTop: 18 }}>👁 Приховані календарі</h4>
           {hiddenCalendars.length === 0 ? (
-            <p>Немає прихованих календарів</p>
+            <p style={{ fontSize: 14 }}>Немає прихованих календарів</p>
           ) : (
             hiddenCalendars.map((c) => (
               <div key={c._id} style={hiddenItem(theme)}>
                 <b>{c.name}</b>
-                <button style={restoreBtn(theme)} onClick={() => showCalendarBack(c)}>
+                <button
+                  style={restoreBtn(theme)}
+                  onClick={() => showCalendarBack(c)}
+                >
                   ♻ Показати
                 </button>
               </div>
             ))
           )}
-        </div>
-      )}
 
-
-      {/* MAIN MODAL */}
-      {showModal && (
-        <div style={overlay(theme)} onClick={closeModal}>
-          <div style={modal(theme)} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>
-              {editingCalendar
-                ? "✏️ Редагувати календар"
-                : "➕ Новий календар"}
-            </h3>
-
-            <form
-              onSubmit={handleSave}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
+          <div style={{ marginTop: 20, textAlign: "right" }}>
+            <button
+              type="button"
+              style={cancelBtn(theme)}
+              onClick={onClose}
             >
-              <input
-                placeholder="Назва"
-                value={form.name}
-                onChange={(e) =>
-                  setForm({ ...form, name: e.target.value })
-                }
-                required
-                style={input(theme)}
-              />
-
-              <input
-                type="color"
-                value={form.color}
-                onChange={(e) =>
-                  setForm({ ...form, color: e.target.value })
-                }
-                style={{
-                  width: 50,
-                  height: 40,
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              />
-
-              <textarea
-                placeholder="Опис"
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-                style={textarea(theme)}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 8,
-                }}
-              >
-                <button style={saveBtn(theme)}>💾 Зберегти</button>
-
-                {editingCalendar &&
-                  !isMainCalendar(editingCalendar) &&
-                  !isHolidayCalendar(editingCalendar) &&
-                  isOwner(editingCalendar) && (
-                    <button
-                      type="button"
-                      style={deleteBtn(theme)}
-                      onClick={() => handleDelete(editingCalendar)}
-                    >
-                      🗑 Видалити
-                    </button>
-                  )}
-
-                <button
-                  type="button"
-                  style={cancelBtn(theme)}
-                  onClick={closeModal}
-                >
-                  Скасувати
-                </button>
-              </div>
-            </form>
-
-            <h4 style={{ marginTop: 18 }}>📅 Ваші календарі</h4>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {calendars.map((c) => {
-                const ownerHere = isOwner(c);
-                const participantHere = isParticipant(c);
-
-                return (
-                  <li key={c._id} style={listItem(theme)}>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <div
-                        style={{
-                          width: 12,
-                          height: 12,
-                          background: c.color,
-                          borderRadius: "50%",
-                        }}
-                      />
-                      <b>
-                        {c.name}
-                        {isMainCalendar(c) ? " ⭐" : ""}
-                        {isHolidayCalendar(c) ? " 🎉" : ""}
-                      </b>
-                    </div>
-
-                    {/* Кнопки управления */}
-                    {isMainCalendar(c) ? (
-                      // главный – вообще без кнопок
-                      null
-                    ) : isHolidayCalendar(c) ? (
-                      // holiday: владелец может скрыть, участники – только смотреть список
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {ownerHere && (
-                          <button
-                            style={hideBtn(theme)}
-                            onClick={() => hideCalendar(c)}
-                          >
-                            🙈
-                          </button>
-                        )}
-                        {participantHere && (
-                          <button
-                            style={membersBtn(theme)}
-                            onClick={() => openMembersModal(c)}
-                          >
-                            👥
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      // обычный календарь
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {ownerHere && (
-                          <>
-                            <button
-                              style={smallBtn(theme)}
-                              onClick={() => openModal(c)}
-                            >
-                              ✏
-                            </button>
-                            <button
-                              style={hideBtn(theme)}
-                              onClick={() => hideCalendar(c)}
-                            >
-                              🙈
-                            </button>
-                            <button
-                              style={inviteBtn(theme)}
-                              onClick={() => openInviteModal(c)}
-                            >
-                              📨
-                            </button>
-                          </>
-                        )}
-                        {participantHere && (
-                          <button
-                            style={membersBtn(theme)}
-                            onClick={() => openMembersModal(c)}
-                          >
-                            👥
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+              Закрити
+            </button>
           </div>
         </div>
-      )}
-
-      {/* INVITE MODAL */}
-      {showInviteModal && inviteCalendar && (
-        <div style={overlay(theme)} onClick={closeInviteModal}>
-          <div
-            style={modal(theme)}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>📨 Запросити в "{inviteCalendar.name}"</h3>
-
-            <form
-              onSubmit={handleInviteSubmit}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <input
-                type="email"
-                placeholder="Email користувача"
-                value={inviteForm.email}
-                onChange={(e) =>
-                  setInviteForm({
-                    ...inviteForm,
-                    email: e.target.value,
-                  })
-                }
-                required
-                style={input(theme)}
-              />
-
-              <select
-                value={inviteForm.role}
-                onChange={(e) =>
-                  setInviteForm({
-                    ...inviteForm,
-                    role: e.target.value,
-                  })
-                }
-                style={input(theme)}
-              >
-                <option value="member">
-                  Учасник (тільки перегляд)
-                </option>
-                <option value="editor">
-                  Редактор (може змінювати події)
-                </option>
-              </select>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 8,
-                }}
-              >
-                <button style={saveBtn(theme)} type="submit">
-                  Відправити
-                </button>
-                <button
-                  style={cancelBtn(theme)}
-                  type="button"
-                  onClick={closeInviteModal}
-                >
-                  Закрити
-                </button>
-              </div>
-            </form>
-
-            {inviteResult && (
-              <div style={{ marginTop: 12, fontSize: 14 }}>
-                <p>{inviteResult.message}</p>
-                {inviteResult.previewUrl && (
-                  <a
-                    href={inviteResult.previewUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    🔗 Попередній перегляд листа
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* MEMBERS MODAL */}
       {showMembersModal && membersCalendar && (
         <div style={overlay(theme)} onClick={closeMembersModal}>
-          <div
-            style={modal(theme)}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div style={modal(theme)} onClick={(e) => e.stopPropagation()}>
             <h3>👥 Учасники "{membersCalendar.name}"</h3>
 
-            {/* Власник */}
+            {/* === Новий учасник === */}
+            <div style={{ marginBottom: 16 }}>
+              <h4>Запросити нового учасника</h4>
+
+              <form
+                onSubmit={handleInviteSubmitFromMembers}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <input
+                  type="email"
+                  placeholder="Email користувача"
+                  value={inviteForm.email}
+                  onChange={(e) =>
+                    setInviteForm({
+                      ...inviteForm,
+                      email: e.target.value,
+                    })
+                  }
+                  required
+                  style={input(theme)}
+                />
+
+                <select
+                  value={inviteForm.role}
+                  onChange={(e) =>
+                    setInviteForm({
+                      ...inviteForm,
+                      role: e.target.value,
+                    })
+                  }
+                  style={input(theme)}
+                >
+                  <option value="member">Учасник (перегляд)</option>
+                  <option value="editor">Редактор</option>
+                </select>
+
+                <button style={saveBtn(theme)} type="submit">
+                  ➕ Запросити
+                </button>
+              </form>
+
+              {inviteResult && (
+                <p style={{ marginTop: 10, fontSize: 14 }}>
+                  {inviteResult.message}
+                </p>
+              )}
+            </div>
+
+            {/* === OWNER === */}
             {membersCalendar.owner && (
               <div
                 style={{
@@ -646,19 +570,23 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
                   marginBottom: 6,
                 }}
               >
-                <div style={{ fontSize: 12, color: theme.textMuted }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: theme.textMuted,
+                  }}
+                >
                   Власник
                 </div>
                 <b>
                   {membersCalendar.owner.email ||
                     membersCalendar.owner.fullName ||
-                    membersCalendar.owner.name ||
-                    "Owner"}
+                    membersCalendar.owner.name}
                 </b>
               </div>
             )}
 
-            {/* Если никого больше нет */}
+            {/* NO MEMBERS */}
             {!membersCalendar.editors?.length &&
               !membersCalendar.members?.length && (
                 <p style={{ fontSize: 14 }}>
@@ -666,18 +594,16 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
                 </p>
               )}
 
-            {/* Editors */}
+            {/* === EDITORS === */}
             {membersCalendar.editors?.map((u) => {
               const id = u._id || u.id || u;
               const label =
                 u.email || u.fullName || u.name || String(id);
-              const isSelf =
-                currentUserId &&
-                id?.toString() === currentUserId.toString();
 
-              const canChangeRole = myRoleInMembersCalendar === "owner";
-              const canRemoveThis =
-                myRoleInMembersCalendar === "owner" || isSelf;
+              const isSelf = id?.toString() === currentUserId?.toString();
+
+              const canEdit = myRoleInMembersCalendar === "owner";
+              const canRemove = canEdit || isSelf;
 
               return (
                 <div
@@ -703,7 +629,7 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
                   </div>
 
                   <div style={{ display: "flex", gap: 6 }}>
-                    {canChangeRole && (
+                    {canEdit && (
                       <select
                         value="editor"
                         onChange={(e) =>
@@ -716,10 +642,9 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
                       </select>
                     )}
 
-                    {canRemoveThis && (
+                    {canRemove && (
                       <button
                         style={deleteBtn(theme)}
-                        type="button"
                         onClick={() => removeMember(id)}
                       >
                         ❌
@@ -730,18 +655,16 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
               );
             })}
 
-            {/* Members */}
+            {/* === MEMBERS === */}
             {membersCalendar.members?.map((u) => {
               const id = u._id || u.id || u;
               const label =
                 u.email || u.fullName || u.name || String(id);
-              const isSelf =
-                currentUserId &&
-                id?.toString() === currentUserId.toString();
 
-              const canChangeRole = myRoleInMembersCalendar === "owner";
-              const canRemoveThis =
-                myRoleInMembersCalendar === "owner" || isSelf;
+              const isSelf = id?.toString() === currentUserId?.toString();
+
+              const canEdit = myRoleInMembersCalendar === "owner";
+              const canRemove = canEdit || isSelf;
 
               return (
                 <div
@@ -767,7 +690,7 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
                   </div>
 
                   <div style={{ display: "flex", gap: 6 }}>
-                    {canChangeRole && (
+                    {canEdit && (
                       <select
                         value="member"
                         onChange={(e) =>
@@ -780,10 +703,9 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
                       </select>
                     )}
 
-                    {canRemoveThis && (
+                    {canRemove && (
                       <button
                         style={deleteBtn(theme)}
-                        type="button"
                         onClick={() => removeMember(id)}
                       >
                         ❌
@@ -797,7 +719,6 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
             <div style={{ marginTop: 12 }}>
               <button
                 style={cancelBtn(theme)}
-                type="button"
                 onClick={closeMembersModal}
               >
                 Закрити
@@ -806,7 +727,7 @@ export default function CalendarManager({ calendars, setCalendars, token }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -825,58 +746,14 @@ const overlay = (theme) => ({
 
 const modal = (theme) => ({
   width: 420,
+  maxHeight: "80vh",
+  overflowY: "auto",
   borderRadius: 16,
   padding: 25,
   background: theme.cardBg,
   border: theme.cardBorder,
   boxShadow: theme.cardShadow,
   color: theme.text,
-});
-
-const button = (theme) => ({
-  background: theme.primary,
-  color: "white",
-  padding: "8px 16px",
-  borderRadius: 8,
-  border: "none",
-  cursor: "pointer",
-  marginRight: 10,
-  fontSize: 14,
-});
-
-const hiddenBtn = (theme) => ({
-  background: theme.textMuted,
-  color: theme.name === "dark" ? "#fff" : "#000",
-  padding: "8px 16px",
-  borderRadius: 8,
-  border: "none",
-  cursor: "pointer",
-  fontSize: 14,
-});
-
-const hiddenBox = (theme) => ({
-  marginTop: 10,
-  padding: 12,
-  background: theme.primarySoft,
-  border: theme.cardBorder,
-  borderRadius: 10,
-});
-
-const hiddenItem = (theme) => ({
-  display: "flex",
-  justifyContent: "space-between",
-  padding: 6,
-  borderBottom: theme.cardBorder,
-});
-
-const restoreBtn = (theme) => ({
-  background: "#22c55e",
-  color: "white",
-  padding: "4px 8px",
-  borderRadius: 8,
-  border: "none",
-  cursor: "pointer",
-  fontSize: 13,
 });
 
 const input = (theme) => ({
@@ -952,8 +829,8 @@ const hideBtn = (theme) => ({
   fontSize: 13,
 });
 
-const inviteBtn = (theme) => ({
-  background: "#0ea5e9",
+const membersBtn = (theme) => ({
+  background: "#6366f1",
   color: "white",
   padding: "4px 8px",
   borderRadius: 6,
@@ -962,11 +839,18 @@ const inviteBtn = (theme) => ({
   fontSize: 13,
 });
 
-const membersBtn = (theme) => ({
-  background: "#6366f1",
+const hiddenItem = (theme) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  padding: 6,
+  borderBottom: theme.cardBorder,
+});
+
+const restoreBtn = (theme) => ({
+  background: "#22c55e",
   color: "white",
   padding: "4px 8px",
-  borderRadius: 6,
+  borderRadius: 8,
   border: "none",
   cursor: "pointer",
   fontSize: 13,
