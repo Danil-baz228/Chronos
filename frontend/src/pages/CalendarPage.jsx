@@ -1,5 +1,5 @@
 // =======================
-//   CalendarPage.jsx — FIXED
+//   CalendarPage.jsx — BEAUTIFUL ANIMATED + YEAR VIEW
 // =======================
 
 import React, {
@@ -17,10 +17,11 @@ import EventPreview from "../components/EventPreview";
 import CalendarManager from "../components/CalendarManager";
 import SettingsModal from "../components/settings/SettingsModal";
 
+import YearView from "./YearView"; // 🔥 годовой просмотр
+
+import { motion, AnimatePresence } from "framer-motion"; // <-- animations
 import { ThemeContext } from "../context/ThemeContext";
 
-// ===========================================
-//   Convert date to input-local format (NO UTC SHIFT)
 // ===========================================
 function toLocalInputValue(date) {
   if (!date) return "";
@@ -46,34 +47,35 @@ export default function CalendarPage() {
     return () => window.removeEventListener("open_settings", handler);
   }, []);
 
-  // CALENDAR MANAGER MODAL
+  // CALENDAR MANAGER
   const [managerOpen, setManagerOpen] = useState(false);
 
-  // CALENDAR LIST
+  // DATA
   const [calendars, setCalendars] = useState([]);
   const [selectedCalendar, setSelectedCalendar] = useState(null);
-
-  // EVENTS
   const [events, setEvents] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [holidayCache, setHolidayCache] = useState({});
 
-  // UI
   const [loading, setLoading] = useState(true);
+
+  // EVENT MODAL
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [editEvent, setEditEvent] = useState(null);
+
+  // PREVIEW
   const [previewEvent, setPreviewEvent] = useState(null);
 
   // FILTERS
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  // DATE
+  // DATE / VIEW
   const [currentView, setCurrentView] = useState("month");
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // INVITATION
+  // INVITES
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
@@ -137,7 +139,7 @@ export default function CalendarPage() {
   }, [token]);
 
   // ============================
-  // ROLE CALCULATION
+  // USER ROLE
   // ============================
   const [userRole, setUserRole] = useState("member");
 
@@ -235,10 +237,7 @@ export default function CalendarPage() {
   // ============================
   const selectedCalObj = calendars.find((c) => c._id === selectedCalendar);
 
-  // ❌ НЕ додаємо свята у звичайні календарі
-const allEvents = selectedCalObj?.isHolidayCalendar
-  ? holidays
-  : events;
+  const allEvents = selectedCalObj?.isHolidayCalendar ? holidays : events;
 
   // ============================
   // FILTER
@@ -305,7 +304,7 @@ const allEvents = selectedCalObj?.isHolidayCalendar
   };
 
   // ============================
-  // DELETE EVENT (для владельца/редактора)
+  // DELETE EVENT
   // ============================
   const handleDeleteEvent = async (id) => {
     if (!canEditEvents) return alert("У вас немає прав");
@@ -326,7 +325,7 @@ const allEvents = selectedCalObj?.isHolidayCalendar
   };
 
   // ============================
-  // ОТКРЫТИЕ МОДАЛКИ СОБЫТИЯ
+  // OPEN MODAL
   // ============================
   const openModal = useCallback(
     (mode = "add", event = null) => {
@@ -387,18 +386,96 @@ const allEvents = selectedCalObj?.isHolidayCalendar
   };
 
   // ============================
-  // ОТКРЫТЬ ПРЕВЬЮ (клик по событию)
+  // PREVIEW
   // ============================
   const handleEventClick = useCallback((event) => {
     setPreviewEvent(event);
   }, []);
 
   // ============================
-  // LOADING SCREEN
+  // INVITE
+  // ============================
+  const handleInvite = async () => {
+    if (!previewEvent) return;
+    if (!inviteEmail.trim()) return;
+
+    setInviteLoading(true);
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/events/${previewEvent._id}/invite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ email: inviteEmail.trim() }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Помилка запрошення");
+
+      const updated = data.event || data;
+
+      setEvents((prev) =>
+        prev.map((e) => (e._id === updated._id ? updated : e))
+      );
+
+      setPreviewEvent(updated);
+      setInviteEmail("");
+    } catch (err) {
+      console.error("Invite error:", err);
+      alert(err.message);
+    }
+
+    setInviteLoading(false);
+  };
+
+  // ============================
+  // REMOVE INVITED USER
+  // ============================
+  const handleRemoveInviteUser = async (value, type) => {
+    if (!previewEvent) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/events/${previewEvent._id}/remove-invite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ value, type }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || "Помилка");
+
+      setEvents((prev) =>
+        prev.map((e) =>
+          e._id === data.event._id ? data.event : e
+        )
+      );
+
+      setPreviewEvent(data.event);
+    } catch (err) {
+      console.error("removeInvite error:", err);
+      alert("Помилка видалення користувача");
+    }
+  };
+
+  // ============================
+  // LOADING SCREEN (animated)
   // ============================
   if (loading) {
     return (
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         style={{
           height: "100vh",
           display: "flex",
@@ -406,102 +483,29 @@ const allEvents = selectedCalObj?.isHolidayCalendar
           justifyContent: "center",
           background: theme.pageBg,
           color: theme.text,
+          fontSize: 22,
         }}
       >
-        <p>Завантаження...</p>
-      </div>
+        <motion.div
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+        >
+          Завантаження...
+        </motion.div>
+      </motion.div>
     );
   }
-
-const handleInvite = async () => {
-  if (!previewEvent) return;
-  if (!inviteEmail.trim()) return;
-
-  setInviteLoading(true);
-
-  try {
-    const res = await fetch(
-      `http://localhost:5000/api/events/${previewEvent._id}/invite`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ email: inviteEmail.trim() }),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Помилка запрошення");
-
-    const updated = data.event || data; // 🔥 підтримує обидва варіанти
-
-    // 🔥 ОНОВЛЮЄМО СПИСОК ПОДІЙ
-    setEvents((prev) =>
-      prev.map((e) => (e._id === updated._id ? updated : e))
-    );
-
-    // 🔥 ОНОВЛЮЄМО ПРЕВ’Ю
-    setPreviewEvent(updated);
-
-    // 🔥 ЧИСТИМО ЕМЕЙЛ
-    setInviteEmail("");
-  } catch (err) {
-    console.error("Invite error:", err);
-    alert(err.message);
-  }
-
-  setInviteLoading(false);
-};
-
-
-
-// ============================
-//   УДАЛЕНИЕ ПРИГЛАШЁННОГО
-// ============================
-const handleRemoveInviteUser = async (value, type) => {
-  if (!previewEvent) return;
-
-  try {
-    const res = await fetch(
-      `http://localhost:5000/api/events/${previewEvent._id}/remove-invite`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ value, type }),
-      }
-    );
-
-    const data = await res.json();
-    if (!res.ok) return alert(data.error || "Помилка");
-
-    // оновлюємо список подій
-    setEvents((prev) =>
-      prev.map((e) =>
-        e._id === data.event._id ? data.event : e
-      )
-    );
-
-    // оновлюємо прев'ю
-    setPreviewEvent(data.event);
-
-  } catch (err) {
-    console.error("removeInvite error:", err);
-    alert("Помилка видалення користувача");
-  }
-};
-
 
   // ============================
-  // RENDER
+  // RENDER (animated)
   // ============================
   return (
-    <div style={{ background: theme.pageBg, minHeight: "100vh" }}>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      style={{ background: theme.pageBg, minHeight: "100vh" }}
+    >
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -532,79 +536,88 @@ const handleRemoveInviteUser = async (value, type) => {
           onOpenManager={() => setManagerOpen(true)}
         />
 
-        <CalendarView
-          events={filteredEvents}
-          calendars={calendars}
-          selectedCalendar={selectedCalendar}
-          currentView={currentView}
-          setCurrentView={setCurrentView}
-          currentDate={currentDate}
-          setCurrentDate={setCurrentDate}
-          onEventClick={handleEventClick}
-          openModal={openModal}
-          colorByCategory={colorByCategory}
-          canCreateEvents={canCreateEvents}
-          canEditEvents={canEditEvents}
-        />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={String(currentView) + String(currentDate)}
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.25 }}
+          >
+            {currentView === "year" ? (
+              <YearView
+                year={currentDate.getFullYear()}
+                events={filteredEvents}
+                onSelectDate={(d) => {
+                  setCurrentDate(new Date(d));
+                  setCurrentView("month");
+                }}
+              />
+            ) : (
+              <CalendarView
+                events={filteredEvents}
+                calendars={calendars}
+                selectedCalendar={selectedCalendar}
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                currentDate={currentDate}
+                setCurrentDate={setCurrentDate}
+                onEventClick={handleEventClick}
+                openModal={openModal}
+                colorByCategory={colorByCategory}
+                canCreateEvents={canCreateEvents}
+                canEditEvents={canEditEvents}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      <EventModal
-        isOpen={showModal}
-        mode={modalMode}
-        newEvent={newEvent}
-        setNewEvent={setNewEvent}
-        onClose={closeModal}
-        onSave={handleSaveEvent}
-        onDelete={handleDeleteEvent}
-        editEvent={editEvent}
-      />
+      <AnimatePresence>
+        {showModal && (
+          <EventModal
+            isOpen={showModal}
+            mode={modalMode}
+            newEvent={newEvent}
+            setNewEvent={setNewEvent}
+            onClose={closeModal}
+            onSave={handleSaveEvent}
+            onDelete={handleDeleteEvent}
+            editEvent={editEvent}
+          />
+        )}
 
- <EventPreview
-  event={previewEvent}
-  onClose={() => setPreviewEvent(null)}
-
-  // 🔧 редактирование
-  onEdit={() =>
-    (canEditEvents ||
-      previewEvent?.creator?.toString() === currentUserId?.toString()) &&
-    openModal("edit", previewEvent)
-  }
-
-  // 🔧 удаление оригинала
-  onDelete={() =>
-    (canEditEvents ||
-      previewEvent?.creator?.toString() === currentUserId?.toString()) &&
-    handleDeleteEvent(previewEvent._id)
-  }
-
-  // 🔧 удаление своей копии гостем
-  onDeleteSelf={() =>
-    previewEvent && handleDeleteEvent(previewEvent._id)
-  }
-
-  // 🔥 ИНВАЙТ — ВОТ ЭТО ГЛАВНОЕ!
-  onInvite={handleInvite}
-
-  // 🔥 удаление приглашённых
-  onRemoveInviteUser={handleRemoveInviteUser}
-
-  inviteEmail={inviteEmail}
-  setInviteEmail={setInviteEmail}
-  inviteLoading={inviteLoading}
-
-  // 🔧 права (кто может редактировать)
-  canManage={
-    canEditEvents ||
-    previewEvent?.creator?.toString() === currentUserId?.toString()
-  }
-
-  currentUserId={currentUserId}
-  currentUserEmail={currentUserEmail}
-/>
-
-
-
-
-    </div>
+        {previewEvent && (
+          <EventPreview
+            event={previewEvent}
+            onClose={() => setPreviewEvent(null)}
+            onEdit={() =>
+              (canEditEvents ||
+                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
+              openModal("edit", previewEvent)
+            }
+            onDelete={() =>
+              (canEditEvents ||
+                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
+              handleDeleteEvent(previewEvent._id)
+            }
+            onDeleteSelf={() =>
+              previewEvent && handleDeleteEvent(previewEvent._id)
+            }
+            onInvite={handleInvite}
+            onRemoveInviteUser={handleRemoveInviteUser}
+            inviteEmail={inviteEmail}
+            setInviteEmail={setInviteEmail}
+            inviteLoading={inviteLoading}
+            canManage={
+              canEditEvents ||
+              previewEvent?.creator?.toString() === currentUserId?.toString()
+            }
+            currentUserId={currentUserId}
+            currentUserEmail={currentUserEmail}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

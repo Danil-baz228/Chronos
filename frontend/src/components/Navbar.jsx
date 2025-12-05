@@ -1,8 +1,77 @@
+// src/components/Navbar.jsx
+
 import React, { useContext, useState, useRef, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { socket } from "../socket";
+import { motion, AnimatePresence } from "framer-motion";
+
+// =======================================
+// 🔥 АНИМИРОВАННЫЙ ЛОГОТИП "Chronus"
+// Сначала большая C, потом "hronus" выезжает, всё гаснет, цикл
+// =======================================
+function ChronusLogo({ theme, onClick }) {
+  return (
+    <motion.div
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "6px 14px",
+        borderRadius: 12,
+        background: theme.primarySoft,
+        color: theme.primary,
+        fontWeight: 800,
+        fontSize: 18,
+        letterSpacing: 0.6,
+        cursor: "pointer",
+        boxShadow: theme.cardShadow,
+        overflow: "hidden",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {/* Большая C */}
+      <motion.span
+        initial={{ opacity: 0, x: -10 }}
+        animate={{
+          opacity: [0, 1, 1, 0],
+          x: [-10, 0, 0, 0],
+        }}
+        transition={{
+          duration: 2.6,
+          times: [0, 0.15, 0.7, 1],
+          repeat: Infinity,
+          repeatDelay: 0.4,
+          ease: "easeOut",
+        }}
+        style={{ fontSize: 22 }}
+      >
+        C
+      </motion.span>
+
+      {/* "hronus" выезжает справа */}
+      <motion.span
+        initial={{ opacity: 0, x: 30 }}
+        animate={{
+          opacity: [0, 0, 1, 1, 0],
+          x: [30, 15, 0, 0, 0],
+        }}
+        transition={{
+          duration: 2.6,
+          times: [0, 0.15, 0.35, 0.75, 1],
+          repeat: Infinity,
+          repeatDelay: 0.4,
+          ease: "easeOut",
+        }}
+        style={{ fontSize: 18 }}
+      >
+        hronus
+      </motion.span>
+    </motion.div>
+  );
+}
 
 export default function Navbar() {
   const { theme } = useContext(ThemeContext);
@@ -12,11 +81,10 @@ export default function Navbar() {
   const location = useLocation();
 
   // ==============================
-  // AUTH PAGES DETECTION
+  // AUTH PAGE DETECTION
   // ==============================
-const authPages = ["/", "/login", "/register"];
-const isAuthPage = authPages.includes(location.pathname);
-
+  const authPages = ["/", "/login", "/register"];
+  const isAuthPage = authPages.includes(location.pathname);
 
   // ==============================
   // USER
@@ -26,8 +94,7 @@ const isAuthPage = authPages.includes(location.pathname);
   );
 
   useEffect(() => {
-    const handler = () =>
-      setUser(JSON.parse(localStorage.getItem("user")));
+    const handler = () => setUser(JSON.parse(localStorage.getItem("user")));
     window.addEventListener("user_updated", handler);
     window.addEventListener("avatar_updated", handler);
     return () => {
@@ -49,8 +116,8 @@ const isAuthPage = authPages.includes(location.pathname);
   // ==============================
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
-
   const notifRef = useRef(null);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
@@ -111,7 +178,7 @@ const isAuthPage = authPages.includes(location.pathname);
   };
 
   // ==============================
-  // CLICK OUTSIDE HANDLERS
+  // CLICK OUTSIDE HANDLING
   // ==============================
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -130,14 +197,17 @@ const isAuthPage = authPages.includes(location.pathname);
   }, [notifOpen, menuOpen]);
 
   const active = (path) =>
-    location.pathname.startsWith(path) ? theme.primarySoft : "transparent";
+    location.pathname.startsWith(path) ? true : false;
 
   // =====================================================
-  // SPECIAL AUTH NAVBAR (Login / Register)
+  // SPECIAL AUTH NAVBAR
   // =====================================================
   if (isAuthPage) {
     return (
-      <nav
+      <motion.nav
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
         style={{
           position: "fixed",
           top: 0,
@@ -145,8 +215,6 @@ const isAuthPage = authPages.includes(location.pathname);
           height: 60,
           zIndex: 50,
           background: "transparent",
-          boxShadow: "none",
-          borderBottom: "none",
         }}
       >
         <div
@@ -160,24 +228,11 @@ const isAuthPage = authPages.includes(location.pathname);
             justifyContent: "space-between",
           }}
         >
-          {/* LOGO */}
-          <div
+          {/* Логотип Chronus с анимацией */}
+          <ChronusLogo
+            theme={theme}
             onClick={() => navigate("/login")}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              background: theme.primarySoft,
-              color: theme.primary,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Ch
-          </div>
+          />
 
           <div style={{ display: "flex", gap: 12 }}>
             <button
@@ -199,15 +254,18 @@ const isAuthPage = authPages.includes(location.pathname);
             </button>
           </div>
         </div>
-      </nav>
+      </motion.nav>
     );
   }
 
   // =====================================================
-  // MAIN NAVBAR (authorized)
+  // MAIN NAVBAR with animation
   // =====================================================
   return (
-    <nav
+    <motion.nav
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
       style={{
         position: "sticky",
         top: 0,
@@ -230,24 +288,13 @@ const isAuthPage = authPages.includes(location.pathname);
       >
         {/* LEFT */}
         <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-          <div
+          {/* 🔥 Анимированный логотип Chronus */}
+          <ChronusLogo
+            theme={theme}
             onClick={() => navigate("/calendar")}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              background: theme.primarySoft,
-              color: theme.primary,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Ch
-          </div>
+          />
 
+          {/* Навигация с анимацией кнопок */}
           <div
             style={{
               display: "flex",
@@ -258,25 +305,27 @@ const isAuthPage = authPages.includes(location.pathname);
               border: theme.cardBorder,
             }}
           >
-            <button
-              style={navBtn(theme, active("/calendar"))}
+            <NavButton
+              theme={theme}
+              active={active("/calendar")}
               onClick={() => navigate("/calendar")}
             >
               📅 Календар
-            </button>
+            </NavButton>
 
-            <button
-              style={navBtn(theme, active("/chat"))}
+            <NavButton
+              theme={theme}
+              active={active("/chat")}
               onClick={() => navigate("/chat")}
             >
               💬 Чати
-            </button>
+            </NavButton>
           </div>
         </div>
 
         {/* RIGHT */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* NOTIFICATIONS */}
+          {/* Notifications */}
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setNotifOpen(!notifOpen)}
@@ -291,7 +340,10 @@ const isAuthPage = authPages.includes(location.pathname);
             >
               🔔
               {unreadCount > 0 && (
-                <span
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 18 }}
                   style={{
                     position: "absolute",
                     top: -4,
@@ -305,107 +357,125 @@ const isAuthPage = authPages.includes(location.pathname);
                   }}
                 >
                   {unreadCount}
-                </span>
+                </motion.span>
               )}
             </button>
 
-            {notifOpen && (
-              <div
-                ref={notifRef}
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "110%",
-                  width: 320,
-                  maxHeight: 420,
-                  overflowY: "auto",
-                  background: theme.cardBg,
-                  border: theme.cardBorder,
-                  borderRadius: 16,
-                  boxShadow: theme.cardShadow,
-                  padding: 14,
-                  zIndex: 2000,
-                }}
-              >
-                <div
+            <AnimatePresence>
+              {notifOpen && (
+                <motion.div
+                  ref={notifRef}
+                  initial={{ opacity: 0, y: -10, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 12,
-                    gap: 8,
+                    position: "absolute",
+                    right: 0,
+                    top: "110%",
+                    width: 320,
+                    maxHeight: 420,
+                    overflowY: "auto",
+                    background: theme.cardBg,
+                    border: theme.cardBorder,
+                    borderRadius: 16,
+                    boxShadow: theme.cardShadow,
+                    padding: 14,
+                    zIndex: 2000,
                   }}
                 >
-                  <button
-                    onClick={markAllAsRead}
+                  {/* Controls */}
+                  <div
                     style={{
-                      flex: 1,
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      background: theme.primarySoft,
-                      color: theme.primary,
-                      border: theme.cardBorder,
-                      cursor: "pointer",
-                      fontWeight: 600,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 12,
+                      gap: 8,
                     }}
                   >
-                    ✓ Прочитати всі
-                  </button>
-
-                  <button
-                    onClick={clearAll}
-                    style={{
-                      flex: 1,
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      background: "#ef4444",
-                      color: "white",
-                      border: "none",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                  >
-                    🗑 Очистити
-                  </button>
-                </div>
-
-                {notifications.length === 0 ? (
-                  <div style={{ padding: 20, opacity: 0.6, textAlign: "center" }}>
-                    Немає повідомлень
-                  </div>
-                ) : (
-                  notifications.map((n) => (
-                    <div
-                      key={n._id}
-                      onClick={() => markAsRead(n._id)}
+                    <button
+                      onClick={markAllAsRead}
                       style={{
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        marginBottom: 10,
+                        flex: 1,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        background: theme.primarySoft,
+                        color: theme.primary,
+                        border: theme.cardBorder,
                         cursor: "pointer",
-                        background: n.read ? theme.inputBg : theme.primarySoft,
-                        border: n.read
-                          ? "1px solid transparent"
-                          : `1px solid ${theme.primary}`,
-                        transition: "0.15s",
+                        fontWeight: 600,
                       }}
                     >
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        {n.message}
-                      </div>
-                      <div style={{ opacity: 0.6, fontSize: 12 }}>
-                        {new Date(n.createdAt).toLocaleString()}
-                      </div>
+                      ✓ Прочитати всі
+                    </button>
+
+                    <button
+                      onClick={clearAll}
+                      style={{
+                        flex: 1,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                      }}
+                    >
+                      🗑 Очистити
+                    </button>
+                  </div>
+
+                  {/* Messages */}
+                  {notifications.length === 0 ? (
+                    <div
+                      style={{
+                        padding: 20,
+                        opacity: 0.6,
+                        textAlign: "center",
+                      }}
+                    >
+                      Немає повідомлень
                     </div>
-                  ))
-                )}
-              </div>
-            )}
+                  ) : (
+                    notifications.map((n) => (
+                      <motion.div
+                        key={n._id}
+                        onClick={() => markAsRead(n._id)}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.25 }}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          marginBottom: 10,
+                          cursor: "pointer",
+                          background: n.read
+                            ? theme.inputBg
+                            : theme.primarySoft,
+                          border: n.read
+                            ? "1px solid transparent"
+                            : `1px solid ${theme.primary}`,
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                          {n.message}
+                        </div>
+                        <div style={{ opacity: 0.6, fontSize: 12 }}>
+                          {new Date(n.createdAt).toLocaleString()}
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* USER MENU */}
           <div style={{ position: "relative" }} ref={menuRef}>
             <button
-              onClick={() => setMenuOpen(!menuOpen)}
+              onClick={() => setMenuOpen((o) => !o)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -451,34 +521,43 @@ const isAuthPage = authPages.includes(location.pathname);
               {displayName}
             </button>
 
-            {menuOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "105%",
-                  right: 0,
-                  minWidth: 180,
-                  background: theme.cardBg,
-                  border: theme.cardBorder,
-                  borderRadius: 12,
-                  boxShadow: theme.cardShadow,
-                  padding: "10px 0",
-                }}
-              >
-                <MenuItem label="Профіль" onClick={() => navigate("/profile")} />
-                <MenuItem
-                  label="Налаштування"
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("open_settings"))
-                  }
-                />
-                <MenuItem label="Вийти" danger onClick={logout} />
-              </div>
-            )}
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  style={{
+                    position: "absolute",
+                    top: "105%",
+                    right: 0,
+                    minWidth: 180,
+                    background: theme.cardBg,
+                    border: theme.cardBorder,
+                    borderRadius: 12,
+                    boxShadow: theme.cardShadow,
+                    padding: "10px 0",
+                  }}
+                >
+                  <MenuItem
+                    label="Профіль"
+                    onClick={() => navigate("/profile")}
+                  />
+                  <MenuItem
+                    label="Налаштування"
+                    onClick={() =>
+                      window.dispatchEvent(new CustomEvent("open_settings"))
+                    }
+                  />
+                  <MenuItem label="Вийти" danger onClick={logout} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
-    </nav>
+    </motion.nav>
   );
 }
 
@@ -508,12 +587,25 @@ const miniBtn = (theme) => ({
   cursor: "pointer",
 });
 
-const navBtn = (theme, bg) => ({
-  padding: "8px 16px",
-  borderRadius: 999,
-  background: bg,
-  border: "none",
-  cursor: "pointer",
-  color: theme.text,
-  fontWeight: 600,
-});
+function NavButton({ theme, active, onClick, children }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.95 }}
+      animate={{
+        backgroundColor: active ? theme.primarySoft : "transparent",
+      }}
+      transition={{ duration: 0.2 }}
+      style={{
+        padding: "8px 16px",
+        borderRadius: 999,
+        border: "none",
+        cursor: "pointer",
+        color: theme.text,
+        fontWeight: 600,
+      }}
+    >
+      {children}
+    </motion.button>
+  );
+}
