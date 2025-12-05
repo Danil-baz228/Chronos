@@ -13,5 +13,5 @@ COPY . .
 ENV PORT=5000
 EXPOSE 5000
 
-# запуск серверу
-CMD ["npm", "run","dev"]
+# запуск серверу в продакшені
+CMD ["npm", "start"]
