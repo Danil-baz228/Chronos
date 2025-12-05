@@ -125,7 +125,7 @@ export default function Navbar() {
 
     const load = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/notifications", {
+        const res = await fetch("${BASE_URL}/api/notifications", {
           headers: { Authorization: "Bearer " + localStorage.getItem("token") },
         });
         const list = await res.json();
@@ -151,7 +151,7 @@ export default function Navbar() {
   }, [user]);
 
   const markAsRead = async (id) => {
-    await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
+    await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
       method: "POST",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
@@ -161,7 +161,7 @@ export default function Navbar() {
   };
 
   const markAllAsRead = async () => {
-    await fetch("http://localhost:5000/api/notifications/read-all", {
+    await fetch("${BASE_URL}/api/notifications/read-all", {
       method: "POST",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
@@ -169,7 +169,7 @@ export default function Navbar() {
   };
 
   const clearAll = async () => {
-    await fetch("http://localhost:5000/api/notifications/clear-all", {
+    await fetch("${BASE_URL}/api/notifications/clear-all", {
       method: "DELETE",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
@@ -505,7 +505,7 @@ export default function Navbar() {
               >
                 {user?.avatar ? (
                   <img
-                    src={`http://localhost:5000${user.avatar}`}
+                    src={`${BASE_URL}${user.avatar}`}
                     alt="avatar"
                     style={{
                       width: "100%",

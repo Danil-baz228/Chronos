@@ -107,10 +107,10 @@ export default function CalendarPage() {
     const fetchAll = async () => {
       try {
         const [calRes, evRes] = await Promise.allSettled([
-          fetch("http://localhost:5000/api/calendars", {
+          fetch("${BASE_URL}/api/calendars", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch("http://localhost:5000/api/events", {
+          fetch("${BASE_URL}/api/events", {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -199,7 +199,7 @@ export default function CalendarPage() {
     const load = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/events/holidays?year=${year}`,
+          `${BASE_URL}/api/events/holidays?year=${year}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -271,8 +271,8 @@ export default function CalendarPage() {
 
     const url =
       modalMode === "edit"
-        ? `http://localhost:5000/api/events/${editEvent._id}`
-        : "http://localhost:5000/api/events";
+        ? `${BASE_URL}/api/events/${editEvent._id}`
+        : "${BASE_URL}/api/events";
 
     const method = modalMode === "edit" ? "PUT" : "POST";
 
@@ -310,7 +310,7 @@ export default function CalendarPage() {
     if (!canEditEvents) return alert("У вас немає прав");
     if (!window.confirm("Видалити подію?")) return;
 
-    const res = await fetch(`http://localhost:5000/api/events/${id}`, {
+    const res = await fetch(`${BASE_URL}/api/events/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -403,7 +403,7 @@ export default function CalendarPage() {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/events/${previewEvent._id}/invite`,
+        `${BASE_URL}/api/events/${previewEvent._id}/invite`,
         {
           method: "POST",
           headers: {
@@ -442,7 +442,7 @@ export default function CalendarPage() {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/events/${previewEvent._id}/remove-invite`,
+        `${BASE_URL}/api/events/${previewEvent._id}/remove-invite`,
         {
           method: "POST",
           headers: {

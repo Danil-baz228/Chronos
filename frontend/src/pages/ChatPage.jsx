@@ -22,7 +22,7 @@ export default function ChatPage() {
 
 
   const loadChats = async () => {
-    const res = await fetch("http://localhost:5000/api/chat", {
+    const res = await fetch("${BASE_URL}/api/chat", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -53,7 +53,7 @@ export default function ChatPage() {
     }
 
     const res = await fetch(
-      `http://localhost:5000/api/users/search?query=${query}`,
+      `${BASE_URL}/api/users/search?query=${query}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -65,7 +65,7 @@ export default function ChatPage() {
   // START CHAT
   // ======================
   const startChatWithUser = async (user) => {
-    const res = await fetch("http://localhost:5000/api/chat/create", {
+    const res = await fetch("${BASE_URL}/api/chat/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -91,7 +91,7 @@ export default function ChatPage() {
     socket.emit("join_chat", chat._id);
 
     const res = await fetch(
-      `http://localhost:5000/api/chat/${chat._id}/messages`,
+      `${BASE_URL}/api/chat/${chat._id}/messages`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -154,7 +154,7 @@ export default function ChatPage() {
   // ======================
   const sendMessage = async (text) => {
     await fetch(
-      `http://localhost:5000/api/chat/${selectedChat._id}/messages`,
+      `${BASE_URL}/api/chat/${selectedChat._id}/messages`,
       {
         method: "POST",
         headers: {

@@ -101,8 +101,8 @@ export default function CalendarManager({
     e.preventDefault();
 
     const url = editingCalendar
-      ? `http://localhost:5000/api/calendars/${editingCalendar._id}`
-      : "http://localhost:5000/api/calendars";
+      ? `${BASE_URL}/api/calendars/${editingCalendar._id}`
+      : "${BASE_URL}/api/calendars";
 
     const res = await fetch(url, {
       method: editingCalendar ? "PUT" : "POST",
@@ -137,7 +137,7 @@ export default function CalendarManager({
     if (!window.confirm("Видалити календар?")) return;
 
     const res = await fetch(
-      `http://localhost:5000/api/calendars/${calendar._id}`,
+      `${BASE_URL}/api/calendars/${calendar._id}`,
       { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -158,7 +158,7 @@ export default function CalendarManager({
       return alert("Лише власник може приховати календар");
 
     const res = await fetch(
-      `http://localhost:5000/api/calendars/${calendar._id}/hide`,
+      `${BASE_URL}/api/calendars/${calendar._id}/hide`,
       { method: "PUT", headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -171,7 +171,7 @@ export default function CalendarManager({
 
   const showCalendarBack = async (calendar) => {
     const res = await fetch(
-      `http://localhost:5000/api/calendars/${calendar._id}/show`,
+      `${BASE_URL}/api/calendars/${calendar._id}/show`,
       { method: "PUT", headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -211,7 +211,7 @@ export default function CalendarManager({
     e.preventDefault();
 
     const res = await fetch(
-      `http://localhost:5000/api/calendars/${membersCalendar._id}/invite`,
+      `${BASE_URL}/api/calendars/${membersCalendar._id}/invite`,
       {
         method: "POST",
         headers: {
@@ -240,7 +240,7 @@ export default function CalendarManager({
     if (myRoleInMembersCalendar !== "owner") return;
 
     const res = await fetch(
-      `http://localhost:5000/api/calendars/${membersCalendar._id}/members/update`,
+      `${BASE_URL}/api/calendars/${membersCalendar._id}/members/update`,
       {
         method: "POST",
         headers: {
@@ -270,7 +270,7 @@ export default function CalendarManager({
     if (myRoleInMembersCalendar !== "owner" && !isSelf) return;
 
     const res = await fetch(
-      `http://localhost:5000/api/calendars/${membersCalendar._id}/members/remove`,
+      `${BASE_URL}/api/calendars/${membersCalendar._id}/members/remove`,
       {
         method: "POST",
         headers: {

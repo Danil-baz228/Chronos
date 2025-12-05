@@ -48,7 +48,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   // ===================
   const saveProfile = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/users/update", {
+      const res = await fetch("${BASE_URL}/api/users/update", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +77,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   const changePassword = async () => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/users/change-password",
+        "${BASE_URL}/api/users/change-password",
         {
           method: "PUT",
           headers: {
@@ -107,7 +107,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   // =============================
   const updateRegion = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/users/holiday-region", {
+      const res = await fetch("${BASE_URL}/api/users/holiday-region", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

@@ -33,7 +33,7 @@ export default function UserProfile() {
 
     const load = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/events", {
+        const res = await fetch("${BASE_URL}/api/events", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -75,7 +75,7 @@ export default function UserProfile() {
   // AVATAR URL
   // =====================================
   const avatarUrl = user.avatar
-    ? `http://localhost:5000${user.avatar}`
+    ? `${BASE_URL}${user.avatar}`
     : null;
 
   // =====================================
@@ -89,7 +89,7 @@ export default function UserProfile() {
     formData.append("avatar", file);
 
     try {
-      const res = await fetch("http://localhost:5000/api/users/avatar", {
+      const res = await fetch("${BASE_URL}/api/users/avatar", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
