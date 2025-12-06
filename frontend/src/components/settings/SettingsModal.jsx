@@ -2,11 +2,11 @@ import React, { useState, useContext, useEffect, useRef } from "react";
 import { ThemeContext } from "../../context/ThemeContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { BASE_URL } from "../../config";
+
 export default function SettingsModal({ isOpen, onClose }) {
   const { theme, themeName, setThemeName } = useContext(ThemeContext);
   const { lang, setLang } = useContext(LanguageContext);
 
-  // SAFE USER
   let user = {};
   try {
     user = JSON.parse(localStorage.getItem("user")) || {};
@@ -16,9 +16,7 @@ export default function SettingsModal({ isOpen, onClose }) {
 
   const modalRef = useRef(null);
 
-
   const [activeTab, setActiveTab] = useState("main");
-
   const [form, setForm] = useState({
     username: user.username || "",
     fullName: user.fullName || "",
@@ -30,10 +28,11 @@ export default function SettingsModal({ isOpen, onClose }) {
     newPassword: "",
   });
 
-  // ⚡ Новое поле — регион праздников
   const [region, setRegion] = useState(user.holidayRegion || "UA");
 
-  // Close on outside click
+  // ⚡ MOBILE CHECK
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // <-----
+
   useEffect(() => {
     const handler = (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
@@ -42,14 +41,19 @@ export default function SettingsModal({ isOpen, onClose }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
+  // ⚡ TRACK WIDTH
+  useEffect(() => {
+    const resize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+
   if (!isOpen) return null;
 
-  // ===================
-  //  SAVE PROFILE DATA
-  // ===================
+  // ================= SAVE PROFILE =================
   const saveProfile = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/users/update`,{
+      const res = await fetch(`${BASE_URL}/api/users/update`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -59,53 +63,38 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Помилка оновлення");
-        return;
-      }
+      if (!res.ok) return alert(data.error || "Помилка оновлення");
 
       localStorage.setItem("user", JSON.stringify(data.user));
       alert("Дані оновлено!");
-    } catch (e) {
+    } catch {
       alert("Помилка сервера");
     }
   };
 
-  // ===================
-  //   CHANGE PASSWORD
-  // ===================
+  // ================= CHANGE PASSWORD =================
   const changePassword = async () => {
     try {
-      const res = await fetch(
-        `${BASE_URL}/api/users/change-password`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify(passForm),
-        }
-      );
+      const res = await fetch(`${BASE_URL}/api/users/change-password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(passForm),
+      });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Не вдалося змінити пароль");
-        return;
-      }
+      if (!res.ok) return alert(data.error || "Не вдалося змінити пароль");
 
       alert("Пароль змінено!");
       setPassForm({ oldPassword: "", newPassword: "" });
-    } catch (e) {
+    } catch {
       alert("Помилка сервера");
     }
   };
 
-  // =============================
-  //   UPDATE HOLIDAY REGION
-  // =============================
+  // ================= REGION =================
   const updateRegion = async () => {
     try {
       const res = await fetch(`${BASE_URL}/api/users/holiday-region`, {
@@ -118,18 +107,11 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
 
       const data = await res.json();
+      if (!res.ok) return alert(data.error || "Не вдалося змінити регіон");
 
-      if (!res.ok) {
-        alert(data.error || "Не вдалося змінити регіон свят");
-        return;
-      }
-
-      // Обновляем пользователя в LS
       localStorage.setItem("user", JSON.stringify(data.user));
-
       alert("Регіон свят оновлено!");
-
-    } catch (e) {
+    } catch {
       alert("Помилка сервера");
     }
   };
@@ -145,33 +127,39 @@ export default function SettingsModal({ isOpen, onClose }) {
         alignItems: "center",
         justifyContent: "center",
         zIndex: 2000,
+        padding: isMobile ? 12 : 0, // MOBILE FIX
       }}
     >
       <div
         ref={modalRef}
         style={{
-          width: 880,
-          height: 520,
+          width: isMobile ? "100%" : 880,        // MOBILE FIX
+          height: isMobile ? "90vh" : 520,       // MOBILE FIX
+          maxHeight: "90vh",                      // MOBILE FIX
           background: theme.cardBg,
           borderRadius: 16,
           border: theme.cardBorder,
           boxShadow: theme.cardShadow,
           display: "flex",
+          flexDirection: isMobile ? "column" : "row", // MOBILE FIX
           overflow: "hidden",
         }}
       >
         {/* SIDEBAR */}
         <div
           style={{
-            width: 260,
+            width: isMobile ? "100%" : 260,        // MOBILE FIX
+            height: isMobile ? "auto" : "100%",    // MOBILE FIX
             background:
               themeName === "light"
                 ? "rgba(15,23,42,0.85)"
                 : "rgba(15,23,42,0.75)",
-            padding: "26px 18px",
+
+            padding: isMobile ? "14px 10px" : "26px 18px", // MOBILE FIX
             display: "flex",
-            flexDirection: "column",
-            gap: 12,
+            flexDirection: isMobile ? "row" : "column",    // MOBILE FIX
+            gap: 10,
+            overflowX: isMobile ? "auto" : "visible",      // MOBILE FIX
           }}
         >
           <SidebarItem label="Основне" active={activeTab === "main"} onClick={() => setActiveTab("main")} />
@@ -181,7 +169,14 @@ export default function SettingsModal({ isOpen, onClose }) {
         </div>
 
         {/* CONTENT */}
-        <div style={{ flex: 1, padding: 28, color: theme.text, overflowY: "auto" }}>
+        <div
+          style={{
+            flex: 1,
+            padding: isMobile ? "18px 14px" : 28,  // MOBILE FIX
+            color: theme.text,
+            overflowY: "auto",
+          }}
+        >
           {/* HEADER */}
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <h2 style={{ marginBottom: 16 }}>
@@ -205,7 +200,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* ----------------- MAIN TAB ----------------- */}
+          {/* CONTENT TABS */}
           {activeTab === "main" && (
             <>
               {["username", "fullName", "email"].map((field) => (
@@ -219,9 +214,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   </label>
                   <input
                     value={form[field]}
-                    onChange={(e) =>
-                      setForm({ ...form, [field]: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, [field]: e.target.value })}
                     style={inputStyle(theme)}
                   />
                 </div>
@@ -243,14 +236,16 @@ export default function SettingsModal({ isOpen, onClose }) {
             </>
           )}
 
-          {/* ----------------- PASSWORD TAB ----------------- */}
+          {/* PASSWORD */}
           {activeTab === "password" && (
             <>
               <input
                 placeholder="Старий пароль"
                 type="password"
                 value={passForm.oldPassword}
-                onChange={(e) => setPassForm({ ...passForm, oldPassword: e.target.value })}
+                onChange={(e) =>
+                  setPassForm({ ...passForm, oldPassword: e.target.value })
+                }
                 style={inputStyle(theme)}
               />
 
@@ -258,7 +253,9 @@ export default function SettingsModal({ isOpen, onClose }) {
                 placeholder="Новий пароль"
                 type="password"
                 value={passForm.newPassword}
-                onChange={(e) => setPassForm({ ...passForm, newPassword: e.target.value })}
+                onChange={(e) =>
+                  setPassForm({ ...passForm, newPassword: e.target.value })
+                }
                 style={inputStyle(theme)}
               />
 
@@ -278,7 +275,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             </>
           )}
 
-          {/* ----------------- LANGUAGE TAB ----------------- */}
+          {/* LANGUAGE */}
           {activeTab === "language" && (
             <>
               {["uk", "en"].map((code) => (
@@ -290,7 +287,8 @@ export default function SettingsModal({ isOpen, onClose }) {
                     borderRadius: 10,
                     marginBottom: 8,
                     cursor: "pointer",
-                    background: lang === code ? "rgba(255,255,255,0.12)" : "transparent",
+                    background:
+                      lang === code ? "rgba(255,255,255,0.12)" : "transparent",
                   }}
                 >
                   {code === "uk" ? "Українська" : "English"}
@@ -299,7 +297,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             </>
           )}
 
-          {/* ----------------- OTHER TAB ----------------- */}
+          {/* OTHER */}
           {activeTab === "other" && (
             <>
               <h3>Тема</h3>
@@ -312,7 +310,10 @@ export default function SettingsModal({ isOpen, onClose }) {
                     borderRadius: 10,
                     marginBottom: 8,
                     cursor: "pointer",
-                    background: themeName === t ? "rgba(255,255,255,0.12)" : "transparent",
+                    background:
+                      themeName === t
+                        ? "rgba(255,255,255,0.12)"
+                        : "transparent",
                   }}
                 >
                   {t === "light" ? "Світла" : t === "dark" ? "Темна" : "Glass ефект"}
@@ -321,7 +322,6 @@ export default function SettingsModal({ isOpen, onClose }) {
 
               <hr style={{ margin: "16px 0", opacity: 0.4 }} />
 
-              {/* ---------------- РЕГИОН ПРАЗДНИКОВ ---------------- */}
               <h3>Регіон свят</h3>
 
               <select
@@ -329,7 +329,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 onChange={(e) => setRegion(e.target.value)}
                 style={{
                   ...inputStyle(theme),
-                  width: "50%",
+                  width: "60%",
                   cursor: "pointer",
                 }}
               >
@@ -363,7 +363,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   );
 }
 
-// SIDE ITEM
+// SIDEBAR ITEM
 function SidebarItem({ label, active, onClick }) {
   return (
     <div
@@ -375,6 +375,7 @@ function SidebarItem({ label, active, onClick }) {
         background: active ? "rgba(255,255,255,0.12)" : "transparent",
         color: active ? "#fff" : "rgba(255,255,255,0.65)",
         fontWeight: active ? 600 : 400,
+        whiteSpace: "nowrap", // MOBILE FIX
       }}
     >
       {label}
