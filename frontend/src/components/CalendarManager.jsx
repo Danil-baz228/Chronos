@@ -103,7 +103,8 @@ export default function CalendarManager({
 
     const url = editingCalendar
       ? `${BASE_URL}/api/calendars/${editingCalendar._id}`
-      : "${BASE_URL}/api/calendars";
+      : `${BASE_URL}/api/calendars`;
+
 
     const res = await fetch(url, {
       method: editingCalendar ? "PUT" : "POST",

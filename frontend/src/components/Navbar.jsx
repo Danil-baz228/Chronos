@@ -125,7 +125,8 @@ export default function Navbar() {
 
     const load = async () => {
       try {
-        const res = await fetch("${BASE_URL}/api/notifications", {
+        const res = await fetch(`${BASE_URL}/api/notifications`, {
+
           headers: { Authorization: "Bearer " + localStorage.getItem("token") },
         });
         const list = await res.json();
@@ -161,7 +162,7 @@ export default function Navbar() {
   };
 
   const markAllAsRead = async () => {
-    await fetch("${BASE_URL}/api/notifications/read-all", {
+    await fetch(`${BASE_URL}/api/notifications/read-all`, {
       method: "POST",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
@@ -169,7 +170,7 @@ export default function Navbar() {
   };
 
   const clearAll = async () => {
-    await fetch("${BASE_URL}/api/notifications/clear-all", {
+    await fetch(`${BASE_URL}/api/notifications/clear-all`, {
       method: "DELETE",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });

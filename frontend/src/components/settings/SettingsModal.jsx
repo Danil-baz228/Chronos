@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useRef } from "react";
 import { ThemeContext } from "../../context/ThemeContext";
 import { LanguageContext } from "../../context/LanguageContext";
-
+import { BASE_URL } from "../../config";
 export default function SettingsModal({ isOpen, onClose }) {
   const { theme, themeName, setThemeName } = useContext(ThemeContext);
   const { lang, setLang } = useContext(LanguageContext);
@@ -15,6 +15,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   }
 
   const modalRef = useRef(null);
+
 
   const [activeTab, setActiveTab] = useState("main");
 
@@ -48,7 +49,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   // ===================
   const saveProfile = async () => {
     try {
-      const res = await fetch("${BASE_URL}/api/users/update", {
+      const res = await fetch(`${BASE_URL}/api/users/update`,{
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +78,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   const changePassword = async () => {
     try {
       const res = await fetch(
-        "${BASE_URL}/api/users/change-password",
+        `${BASE_URL}/api/users/change-password`,
         {
           method: "PUT",
           headers: {
@@ -107,7 +108,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   // =============================
   const updateRegion = async () => {
     try {
-      const res = await fetch("${BASE_URL}/api/users/holiday-region", {
+      const res = await fetch(`${BASE_URL}/api/users/holiday-region`,, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
