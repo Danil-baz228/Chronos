@@ -108,7 +108,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   // =============================
   const updateRegion = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/users/holiday-region`,, {
+      const res = await fetch(`${BASE_URL}/api/users/holiday-region`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
