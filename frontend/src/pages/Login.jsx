@@ -7,7 +7,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const [form, setForm] = useState({
-    emailOrUsername: "",
+    email: "",
     password: "",
   });
 
@@ -21,7 +21,11 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const res = await loginAPI(form);
+    // отправляем на backend email + password
+    const res = await loginAPI({
+      email: form.email,
+      password: form.password,
+    });
 
     if (res.token) {
       login(res.user, res.token);
@@ -44,10 +48,8 @@ export default function Login() {
         >
           <input
             placeholder={t("login.email")}
-            value={form.emailOrUsername}
-            onChange={(e) =>
-              setForm({ ...form, emailOrUsername: e.target.value })
-            }
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
             style={input(theme)}
           />

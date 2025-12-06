@@ -24,20 +24,17 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // password mismatch
     if (form.password !== form.confirm) {
       setMessage(t("register.passwordMismatch"));
       return;
     }
 
-    // === ВАЖЛИВО: Backend чекає name, email, password ===
     const res = await registerAPI({
-      username: form.username,  // ← ОБЯЗАТЕЛЬНО
-      name: form.fullName,
+      username: form.username,
+      fullName: form.fullName,
       email: form.email,
       password: form.password,
     });
-
 
     if (res.token) {
       login(res.user, res.token);
@@ -46,6 +43,7 @@ export default function Register() {
       setMessage(res.error || t("register.error"));
     }
   };
+
 
   return (
     <div style={wrapper(theme)}>
