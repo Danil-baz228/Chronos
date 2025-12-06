@@ -18,7 +18,6 @@ import CalendarManager from "../components/CalendarManager";
 import SettingsModal from "../components/settings/SettingsModal";
 
 import YearView from "./YearView"; // 🔥 годовой просмотр
-import { BASE_URL } from "../config";
 import { motion, AnimatePresence } from "framer-motion"; // <-- animations
 import { ThemeContext } from "../context/ThemeContext";
 
