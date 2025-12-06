@@ -6,6 +6,7 @@ import { ThemeContext } from "../context/ThemeContext";
 import { socket } from "../socket";
 import Navbar from "../components/Navbar";
 import { BASE_URL } from "../config";
+
 export default function ChatPage() {
   const { theme } = useContext(ThemeContext);
 
@@ -16,11 +17,26 @@ export default function ChatPage() {
   const [onlineList, setOnlineList] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
 
-  const token = localStorage.getItem("token");
-  const currentUser = JSON.parse(localStorage.getItem("user"));
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const chatRef = useRef(null);
 
+  const token = localStorage.getItem("token");
+  const currentUser = JSON.parse(localStorage.getItem("user"));
 
+  // ===========================
+  // TRACK SCREEN RESIZE
+  // ===========================
+  useEffect(() => {
+    const resizeHandler = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", resizeHandler);
+    return () => window.removeEventListener("resize", resizeHandler);
+  }, []);
+
+  // ===========================
+  // LOAD CHATS
+  // ===========================
   const loadChats = async () => {
     const res = await fetch(`${BASE_URL}/api/chat`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -29,7 +45,6 @@ export default function ChatPage() {
     const data = await res.json();
     setChats(data);
   };
-
 
   useEffect(() => {
     loadChats();
@@ -40,18 +55,15 @@ export default function ChatPage() {
     if (currentUser) socket.emit("user_online", currentUser._id);
   }, []);
 
-  // listen online list
+  // LISTEN ONLINE LIST
   useEffect(() => {
     socket.on("online_users", setOnlineList);
     return () => socket.off("online_users");
   }, []);
 
-
+  // SEARCH USERS
   const searchUsers = async (query) => {
-    if (!query.trim()) {
-      setUsers([]);
-      return;
-    }
+    if (!query.trim()) return setUsers([]);
 
     const res = await fetch(
       `${BASE_URL}/api/users/search?query=${query}`,
@@ -62,9 +74,9 @@ export default function ChatPage() {
     setUsers(data);
   };
 
-  // ======================
+  // =======================
   // START CHAT
-  // ======================
+  // =======================
   const startChatWithUser = async (user) => {
     const res = await fetch(`${BASE_URL}/api/chat/create`, {
       method: "POST",
@@ -82,22 +94,18 @@ export default function ChatPage() {
     openChat(chat);
   };
 
-
-  // ======================
+  // =======================
   // OPEN CHAT
-  // ======================
+  // =======================
   const openChat = async (chat) => {
     setSelectedChat(chat);
     socket.emit("join_chat", chat._id);
 
-    const res = await fetch(
-      `${BASE_URL}/api/chat/${chat._id}/messages`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
+    const res = await fetch(`${BASE_URL}/api/chat/${chat._id}/messages`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     let msgs = await res.json();
-
     msgs = msgs.map((m) => ({
       ...m,
       fromMe: m.sender._id === currentUser._id,
@@ -106,15 +114,14 @@ export default function ChatPage() {
     setMessages(msgs);
   };
 
-  // ======================
-  // NEW MESSAGE SOCKET
-  // ======================
+  // =======================
+  // SOCKET NEW MESSAGE
+  // =======================
   useEffect(() => {
     if (!selectedChat) return;
 
     const handler = (msg) => {
       if (msg.chat !== selectedChat._id) return;
-
       setMessages((prev) => [
         ...prev,
         { ...msg, fromMe: msg.sender._id === currentUser._id },
@@ -125,9 +132,9 @@ export default function ChatPage() {
     return () => socket.off("new_message", handler);
   }, [selectedChat]);
 
-  // ======================
+  // =======================
   // TYPING INDICATOR
-  // ======================
+  // =======================
   useEffect(() => {
     if (!selectedChat) return;
 
@@ -150,9 +157,7 @@ export default function ChatPage() {
     };
   }, [selectedChat]);
 
-  // ======================
   // SEND MESSAGE
-  // ======================
   const sendMessage = async (text) => {
     await fetch(`${BASE_URL}/api/chat/${selectedChat._id}/messages`, {
       method: "POST",
@@ -162,10 +167,9 @@ export default function ChatPage() {
       },
       body: JSON.stringify({ text }),
     });
-
   };
 
-  // typing event
+  // typing emit
   const emitTyping = () => {
     if (!selectedChat) return;
 
@@ -183,45 +187,76 @@ export default function ChatPage() {
     }, 1500);
   };
 
-  // ======================
+  // =======================
   // RENDER
-  // ======================
+  // =======================
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
-
 
       {/* CHAT LAYOUT */}
       <div
         style={{
           display: "flex",
           height: "calc(100vh - 70px)",
-          marginTop: 0,
         }}
       >
-        {/* SIDEBAR */}
-        <Sidebar
-          chats={chats}
-          users={users}
-          onSearch={searchUsers}
-          onSelectUser={startChatWithUser}
-          onSelectChat={openChat}
-          selectedChat={selectedChat}
-          currentUser={currentUser}
-          onlineList={onlineList}
-        />
-
-        {/* CHAT WINDOW */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <ChatWindow
+        {/* MOBILE MODE — ONLY SIDEBAR */}
+        {isMobile && !selectedChat && (
+          <Sidebar
+            chats={chats}
+            users={users}
+            onSearch={searchUsers}
+            onSelectUser={startChatWithUser}
+            onSelectChat={openChat}
             selectedChat={selectedChat}
-            messages={messages}
-            typingUser={typingUser}
-            chatRef={chatRef}
-            onSend={sendMessage}
+            currentUser={currentUser}
             onlineList={onlineList}
-            emitTyping={emitTyping}
           />
-        </div>
+        )}
+
+        {/* MOBILE MODE — ONLY CHAT WINDOW */}
+        {isMobile && selectedChat && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <ChatWindow
+              selectedChat={selectedChat}
+              messages={messages}
+              typingUser={typingUser}
+              chatRef={chatRef}
+              onSend={sendMessage}
+              onlineList={onlineList}
+              emitTyping={emitTyping}
+              onBack={() => setSelectedChat(null)} // 👈 кнопка назад
+            />
+          </div>
+        )}
+
+        {/* DESKTOP MODE — BOTH SIDEBAR + CHAT WINDOW */}
+        {!isMobile && (
+          <>
+            <Sidebar
+              chats={chats}
+              users={users}
+              onSearch={searchUsers}
+              onSelectUser={startChatWithUser}
+              onSelectChat={openChat}
+              selectedChat={selectedChat}
+              currentUser={currentUser}
+              onlineList={onlineList}
+            />
+
+            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <ChatWindow
+                selectedChat={selectedChat}
+                messages={messages}
+                typingUser={typingUser}
+                chatRef={chatRef}
+                onSend={sendMessage}
+                onlineList={onlineList}
+                emitTyping={emitTyping}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
