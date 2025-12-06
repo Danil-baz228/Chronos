@@ -3,6 +3,7 @@
 import React, { useContext, useEffect, useState, useRef } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { BASE_URL } from "../config";
+
 export default function UserProfile() {
   const { theme } = useContext(ThemeContext);
 
@@ -26,14 +27,14 @@ export default function UserProfile() {
   }, []);
 
   // ================================
-  // LOAD ONLY MY EVENTS (no holidays, no invitations)
+  // LOAD MY EVENTS
   // ================================
   useEffect(() => {
     if (!token) return;
 
     const load = async () => {
       try {
-        const res = await fetch("${BASE_URL}/api/events", {
+        const res = await fetch(`${BASE_URL}/api/events`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -45,11 +46,9 @@ export default function UserProfile() {
         const userId = storedUser._id;
 
         const my = events.filter((ev) => {
-          // creator може бути як id, так і об'єкт
           const creatorId =
             (ev.creator && (ev.creator._id || ev.creator)) || null;
 
-          // тільки мої, не свята і не копії запрошених подій
           return (
             creatorId &&
             creatorId.toString() === userId.toString() &&
@@ -74,9 +73,7 @@ export default function UserProfile() {
   // =====================================
   // AVATAR URL
   // =====================================
-  const avatarUrl = user.avatar
-    ? `${BASE_URL}${user.avatar}`
-    : null;
+  const avatarUrl = user.avatar ? `${BASE_URL}${user.avatar}` : null;
 
   // =====================================
   // UPLOAD AVATAR
@@ -89,7 +86,7 @@ export default function UserProfile() {
     formData.append("avatar", file);
 
     try {
-      const res = await fetch("${BASE_URL}/api/users/avatar", {
+      const res = await fetch(`${BASE_URL}/api/users/avatar`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -135,6 +132,7 @@ export default function UserProfile() {
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
       <div style={{ maxWidth: 900, margin: "0 auto", paddingTop: 40 }}>
+        
         {/* ============================= USER CARD ============================= */}
         <div style={{ ...card, display: "flex", gap: 20 }}>
           <div
@@ -177,7 +175,9 @@ export default function UserProfile() {
 
           <div>
             <h2 style={{ margin: 0 }}>👤 Профіль користувача</h2>
-            <p style={{ opacity: 0.8 }}>Управління даними та власними подіями.</p>
+            <p style={{ opacity: 0.8 }}>
+              Управління даними та власними подіями.
+            </p>
 
             <div style={{ marginTop: 12, lineHeight: "1.7" }}>
               <div>
