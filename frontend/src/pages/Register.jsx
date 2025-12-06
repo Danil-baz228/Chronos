@@ -29,13 +29,6 @@ export default function Register() {
       return;
     }
 
-    console.log("SENDING TO BACKEND:", {
-      username: form.username,
-      fullName: form.fullName,
-      email: form.email,
-      password: form.password,
-    });
-
     const res = await registerAPI({
       username: form.username,
       fullName: form.fullName,
@@ -54,11 +47,12 @@ export default function Register() {
   return (
     <div style={wrapper(theme)}>
       <div style={card(theme)}>
-        <h2 style={{ textAlign: "center", color: theme.text }}>
-          {t("register.title")}
-        </h2>
+        <h2 style={title(theme)}>{t("register.title")}</h2>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        >
           <input
             placeholder={t("register.username")}
             value={form.username}
@@ -123,37 +117,51 @@ export default function Register() {
   );
 }
 
+// RESPONSIVE HELPERS
+const isMobile = window.innerWidth < 480;
+
 const wrapper = (theme) => ({
   minHeight: "100vh",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  padding: isMobile ? "20px" : "0",
   background: theme.pageBg,
 });
 
 const card = (theme) => ({
-  width: 380,
+  width: isMobile ? "100%" : 380,
   background: theme.cardBg,
-  padding: 30,
-  borderRadius: 16,
+  padding: isMobile ? 20 : 30,
+  borderRadius: isMobile ? 12 : 16,
   border: theme.cardBorder,
   boxShadow: theme.cardShadow,
 });
 
+const title = (theme) => ({
+  textAlign: "center",
+  color: theme.text,
+  fontSize: isMobile ? "20px" : "26px",
+  marginBottom: isMobile ? 10 : 20,
+});
+
 const input = (theme) => ({
-  padding: "12px 14px",
+  padding: isMobile ? "14px 16px" : "12px 14px",
   borderRadius: 12,
   border: theme.cardBorder,
   background: theme.pageBg,
   color: theme.text,
+  fontSize: isMobile ? "16px" : "15px",
 });
 
 const btn = (theme) => ({
-  padding: "12px 14px",
+  padding: isMobile ? "14px 16px" : "12px 14px",
   borderRadius: 12,
   background: theme.primarySoft,
   border: `1px solid ${theme.primary}`,
   color: theme.text,
   fontWeight: 600,
+  fontSize: isMobile ? "17px" : "15px",
   cursor: "pointer",
+  marginTop: 5,
 });
