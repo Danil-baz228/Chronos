@@ -32,10 +32,12 @@ export default function Register() {
 
     // === ВАЖЛИВО: Backend чекає name, email, password ===
     const res = await registerAPI({
-      name: form.fullName,   // <-- МАПІНГ ДЛЯ BACKEND
+      username: form.username,  // ← ОБЯЗАТЕЛЬНО
+      name: form.fullName,
       email: form.email,
       password: form.password,
     });
+
 
     if (res.token) {
       login(res.user, res.token);
