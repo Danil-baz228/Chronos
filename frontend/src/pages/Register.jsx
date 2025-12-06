@@ -29,6 +29,13 @@ export default function Register() {
       return;
     }
 
+    console.log("SENDING TO BACKEND:", {
+      username: form.username,
+      fullName: form.fullName,
+      email: form.email,
+      password: form.password,
+    });
+
     const res = await registerAPI({
       username: form.username,
       fullName: form.fullName,
@@ -44,7 +51,6 @@ export default function Register() {
     }
   };
 
-
   return (
     <div style={wrapper(theme)}>
       <div style={card(theme)}>
@@ -52,10 +58,7 @@ export default function Register() {
           {t("register.title")}
         </h2>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 14 }}
-        >
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <input
             placeholder={t("register.username")}
             value={form.username}
