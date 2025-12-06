@@ -1,6 +1,7 @@
 import { BASE_URL } from "../config";
 
-const API_URL = `${BASE_URL}/api`;
+// удаляем слэш на конце
+const API_URL = `${BASE_URL.replace(/\/$/, "")}/api`;
 
 export const register = async (data) => {
   const res = await fetch(`${API_URL}/auth/register`, {
