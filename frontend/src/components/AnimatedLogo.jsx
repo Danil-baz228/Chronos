@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import React from "react";
-
+import { BASE_URL } from "../config";
 const text = "Chronos";
 
 export default function AnimatedLogo({ color }) {

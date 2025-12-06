@@ -2,7 +2,7 @@
 
 import React, { useContext, useEffect, useState, useRef } from "react";
 import { ThemeContext } from "../context/ThemeContext";
-
+import { BASE_URL } from "../config";
 export default function UserProfile() {
   const { theme } = useContext(ThemeContext);
 

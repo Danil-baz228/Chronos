@@ -11,7 +11,7 @@ import {
 } from "date-fns";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { ThemeContext } from "../context/ThemeContext";
-
+import { BASE_URL } from "../config";
 const locales = {
   "en-US": require("date-fns/locale/en-US"),
 };

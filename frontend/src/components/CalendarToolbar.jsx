@@ -4,7 +4,7 @@ import React, { useContext } from "react";
 import { getISOWeek } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
-
+import { BASE_URL } from "../config";
 // =========================================
 //  🔥 Форматируем названия праздничных календарей
 // =========================================

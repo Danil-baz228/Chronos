@@ -6,7 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { socket } from "../socket";
 import { motion, AnimatePresence } from "framer-motion";
-
+import { BASE_URL } from "../config";
 // =======================================
 // 🔥 АНИМИРОВАННЫЙ ЛОГОТИП "Chronus"
 // Сначала большая C, потом "hronus" выезжает, всё гаснет, цикл

@@ -5,7 +5,7 @@ import ChatInput from "../components/chat/ChatInput";
 import { ThemeContext } from "../context/ThemeContext";
 import { socket } from "../socket";
 import Navbar from "../components/Navbar";
-
+import { BASE_URL } from "../config";
 export default function ChatPage() {
   const { theme } = useContext(ThemeContext);
 

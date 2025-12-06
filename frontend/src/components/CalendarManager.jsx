@@ -3,6 +3,7 @@
 import React, { useState, useContext, useMemo } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { AuthContext } from "../context/AuthContext";
+import { BASE_URL } from "../config";
 
 export default function CalendarManager({
   isOpen,
