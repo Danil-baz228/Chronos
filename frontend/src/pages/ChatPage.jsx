@@ -22,13 +22,14 @@ export default function ChatPage() {
 
 
   const loadChats = async () => {
-    const res = await fetch("${BASE_URL}/api/chat", {
+    const res = await fetch(`${BASE_URL}/api/chat`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const data = await res.json();
     setChats(data);
   };
+
 
   useEffect(() => {
     loadChats();
@@ -45,7 +46,7 @@ export default function ChatPage() {
     return () => socket.off("online_users");
   }, []);
 
- 
+
   const searchUsers = async (query) => {
     if (!query.trim()) {
       setUsers([]);
@@ -65,7 +66,7 @@ export default function ChatPage() {
   // START CHAT
   // ======================
   const startChatWithUser = async (user) => {
-    const res = await fetch("${BASE_URL}/api/chat/create", {
+    const res = await fetch(`${BASE_URL}/api/chat/create`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -75,13 +76,12 @@ export default function ChatPage() {
     });
 
     const chat = await res.json();
-
     setChats((prev) =>
       prev.some((c) => c._id === chat._id) ? prev : [...prev, chat]
     );
-
     openChat(chat);
   };
+
 
   // ======================
   // OPEN CHAT
@@ -94,6 +94,7 @@ export default function ChatPage() {
       `${BASE_URL}/api/chat/${chat._id}/messages`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
+
 
     let msgs = await res.json();
 
@@ -153,17 +154,15 @@ export default function ChatPage() {
   // SEND MESSAGE
   // ======================
   const sendMessage = async (text) => {
-    await fetch(
-      `${BASE_URL}/api/chat/${selectedChat._id}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text }),
-      }
-    );
+    await fetch(`${BASE_URL}/api/chat/${selectedChat._id}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+
   };
 
   // typing event
@@ -189,7 +188,7 @@ export default function ChatPage() {
   // ======================
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
-     
+
 
       {/* CHAT LAYOUT */}
       <div
