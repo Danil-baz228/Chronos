@@ -1,35 +1,63 @@
-import { registerUser, loginUser } from "../services/auth.service.js";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
-export const register = async (req, res) => {
-  try {
-    const { username, fullName, email, password } = req.body;
+export const registerUser = async ({ username, fullName, email, password }) => {
+  // проверка уникальности
+  const exists = await User.findOne({ 
+    $or: [
+      { email },
+      { username }
+    ] 
+  });
 
-    const data = await registerUser({ username, fullName, email, password });
-
-    return res.status(201).json({
-      message: "User registered successfully",
-      user: data.user,
-      token: data.token,
-    });
-
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
+  if (exists) {
+    throw new Error("User with this email or username already exists");
   }
+
+  const hashed = await bcrypt.hash(password, 10);
+
+  const user = await User.create({
+    username,
+    fullName,
+    email,
+    password: hashed,
+  });
+
+  const token = jwt.sign(
+    { id: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  return {
+    user,
+    token,
+  };
 };
 
-export const login = async (req, res) => {
-  try {
-    const { emailOrUsername, password } = req.body;
+export const loginUser = async ({ emailOrUsername, password }) => {
+  const user = await User.findOne({
+    $or: [
+      { email: emailOrUsername },
+      { username: emailOrUsername },
+    ]
+  });
 
-    const data = await loginUser({ emailOrUsername, password });
+  if (!user) throw new Error("Invalid credentials");
 
-    return res.status(200).json({
-      message: "Login successful",
-      user: data.user,
-      token: data.token,
-    });
+  const isMatch = await bcrypt.compare(password, user.password);
 
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
-  }
+  if (!isMatch) throw new Error("Invalid credentials");
+
+  const token = jwt.sign(
+    { id: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  return {
+    user,
+    token,
+  };
 };
