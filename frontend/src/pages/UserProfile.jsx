@@ -1,221 +1,227 @@
-// src/pages/UserProfile.jsx
-
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
+import Sidebar from "../components/chat/Sidebar";
+import ChatWindow from "../components/chat/ChatWindow";
+import ChatInput from "../components/chat/ChatInput";
 import { ThemeContext } from "../context/ThemeContext";
+import { socket } from "../socket";
+import Navbar from "../components/Navbar";
 import { BASE_URL } from "../config";
-export default function UserProfile() {
+
+export default function ChatPage() {
   const { theme } = useContext(ThemeContext);
 
-  const [user, setUser] = useState(null);
-  const [myEvents, setMyEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [onlineList, setOnlineList] = useState([]);
+  const [typingUser, setTypingUser] = useState(null);
 
   const token = localStorage.getItem("token");
-  const fileInputRef = useRef(null);
+  const currentUser = JSON.parse(localStorage.getItem("user"));
+  const chatRef = useRef(null);
 
-  // ================================
-  // LOAD USER
-  // ================================
+  // ======================
+  // LOAD CHATS
+  // ======================
+  const loadChats = async () => {
+    const res = await fetch(`${BASE_URL}/api/chat`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await res.json();
+    setChats(data);
+  };
+
   useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      window.location.href = "/login";
-      return;
-    }
-    setUser(JSON.parse(stored));
+    loadChats();
   }, []);
 
-  // ================================
-  // LOAD ONLY MY EVENTS (no holidays, no invitations)
-  // ================================
+  // announce online
   useEffect(() => {
-    if (!token) return;
+    if (currentUser) socket.emit("user_online", currentUser._id);
+  }, []);
 
-    const load = async () => {
-      try {
-        const res = await fetch("${BASE_URL}/api/events", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  // listen online users
+  useEffect(() => {
+    socket.on("online_users", setOnlineList);
+    return () => socket.off("online_users");
+  }, []);
 
-        const events = await res.json();
+  // ======================
+  // SEARCH USERS
+  // ======================
+  const searchUsers = async (query) => {
+    if (!query.trim()) {
+      setUsers([]);
+      return;
+    }
 
-        const storedUser = JSON.parse(localStorage.getItem("user"));
-        if (!storedUser) return;
+    const res = await fetch(
+      `${BASE_URL}/api/users/search?query=${query}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
-        const userId = storedUser._id;
+    const data = await res.json();
+    setUsers(data);
+  };
 
-        const my = events.filter((ev) => {
-          // creator може бути як id, так і об'єкт
-          const creatorId =
-            (ev.creator && (ev.creator._id || ev.creator)) || null;
+  // ======================
+  // START CHAT
+  // ======================
+  const startChatWithUser = async (user) => {
+    const res = await fetch(`${BASE_URL}/api/chat/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId: user._id }),
+    });
 
-          // тільки мої, не свята і не копії запрошених подій
-          return (
-            creatorId &&
-            creatorId.toString() === userId.toString() &&
-            ev.category !== "holiday" &&
-            !ev.invitedFrom
-          );
-        });
+    const chat = await res.json();
 
-        setMyEvents(my);
-      } catch (err) {
-        console.error("Error loading events:", err);
-      } finally {
-        setLoading(false);
+    setChats((prev) =>
+      prev.some((c) => c._id === chat._id) ? prev : [...prev, chat]
+    );
+
+    openChat(chat);
+  };
+
+  // ======================
+  // OPEN CHAT
+  // ======================
+  const openChat = async (chat) => {
+    setSelectedChat(chat);
+    socket.emit("join_chat", chat._id);
+
+    const res = await fetch(
+      `${BASE_URL}/api/chat/${chat._id}/messages`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    let msgs = await res.json();
+
+    msgs = msgs.map((m) => ({
+      ...m,
+      fromMe: m.sender._id === currentUser._id,
+    }));
+
+    setMessages(msgs);
+  };
+
+  // ======================
+  // NEW MESSAGE SOCKET
+  // ======================
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const handler = (msg) => {
+      if (msg.chat !== selectedChat._id) return;
+
+      setMessages((prev) => [
+        ...prev,
+        { ...msg, fromMe: msg.sender._id === currentUser._id },
+      ]);
+    };
+
+    socket.on("new_message", handler);
+    return () => socket.off("new_message", handler);
+  }, [selectedChat]);
+
+  // ======================
+  // TYPING INDICATOR
+  // ======================
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const handleTyping = ({ chatId, userId }) => {
+      if (chatId === selectedChat._id && userId !== currentUser._id) {
+        setTypingUser(userId);
       }
     };
 
-    load();
-  }, [token]);
+    const stopTyping = ({ chatId }) => {
+      if (chatId === selectedChat._id) setTypingUser(null);
+    };
 
-  if (!user) return null;
+    socket.on("typing", handleTyping);
+    socket.on("stop_typing", stopTyping);
 
-  // =====================================
-  // AVATAR URL
-  // =====================================
-  const avatarUrl = user.avatar
-    ? `${BASE_URL}${user.avatar}`
-    : null;
+    return () => {
+      socket.off("typing", handleTyping);
+      socket.off("stop_typing", stopTyping);
+    };
+  }, [selectedChat]);
 
-  // =====================================
-  // UPLOAD AVATAR
-  // =====================================
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append("avatar", file);
-
-    try {
-      const res = await fetch("${BASE_URL}/api/users/avatar", {
+  // ======================
+  // SEND MESSAGE
+  // ======================
+  const sendMessage = async (text) => {
+    await fetch(
+      `${BASE_URL}/api/chat/${selectedChat._id}/messages`,
+      {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
+  };
+
+  // typing event
+  const emitTyping = () => {
+    if (!selectedChat) return;
+
+    socket.emit("typing", {
+      chatId: selectedChat._id,
+      userId: currentUser._id,
+    });
+
+    clearTimeout(window.typingTimeout);
+    window.typingTimeout = setTimeout(() => {
+      socket.emit("stop_typing", {
+        chatId: selectedChat._id,
+        userId: currentUser._id,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) return alert(data.error || "Помилка");
-
-      const updated = { ...user, avatar: data.avatarUrl };
-      setUser(updated);
-      localStorage.setItem("user", JSON.stringify(updated));
-    } catch (e) {
-      console.error("Avatar upload error:", e);
-      alert("Не вдалося завантажити аватар");
-    }
+    }, 1500);
   };
 
-  // ================================
-  // STYLES
-  // ================================
-  const card = {
-    background: theme.cardBg,
-    border: theme.cardBorder,
-    boxShadow: theme.cardShadow,
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    color: theme.text,
-  };
-
-  const eventItem = {
-    background: theme.primarySoft,
-    borderLeft: `4px solid ${theme.primary}`,
-    padding: "10px 14px",
-    marginBottom: 10,
-    borderRadius: 8,
-  };
-
-  // ================================
+  // ======================
   // RENDER
-  // ================================
+  // ======================
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
-      <div style={{ maxWidth: 900, margin: "0 auto", paddingTop: 40 }}>
-        {/* ============================= USER CARD ============================= */}
-        <div style={{ ...card, display: "flex", gap: 20 }}>
-          <div
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: "50%",
-              overflow: "hidden",
-              cursor: "pointer",
-              border: `2px solid ${theme.primary}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: theme.primarySoft,
-            }}
-            onClick={() => fileInputRef.current.click()}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="avatar"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <span
-                style={{ fontSize: 34, fontWeight: 700, color: theme.primary }}
-              >
-                {user.fullName ? user.fullName[0].toUpperCase() : "U"}
-              </span>
-            )}
+      <div
+        style={{
+          display: "flex",
+          height: "calc(100vh - 70px)",
+          marginTop: 0,
+        }}
+      >
+        <Sidebar
+          chats={chats}
+          users={users}
+          onSearch={searchUsers}
+          onSelectUser={startChatWithUser}
+          onSelectChat={openChat}
+          selectedChat={selectedChat}
+          currentUser={currentUser}
+          onlineList={onlineList}
+        />
 
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              style={{ display: "none" }}
-              onChange={handleAvatarChange}
-            />
-          </div>
-
-          <div>
-            <h2 style={{ margin: 0 }}>👤 Профіль користувача</h2>
-            <p style={{ opacity: 0.8 }}>Управління даними та власними подіями.</p>
-
-            <div style={{ marginTop: 12, lineHeight: "1.7" }}>
-              <div>
-                <b>Ім’я:</b> {user.fullName || "—"}
-              </div>
-              <div>
-                <b>Email:</b> {user.email}
-              </div>
-              <div>
-                <b>ID:</b> {user._id}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============================= MY EVENTS ONLY ============================= */}
-        <div style={{ ...card }}>
-          <h3 style={{ marginTop: 0, marginBottom: 16 }}>📅 Мої події</h3>
-
-          {loading ? (
-            <p>Завантаження...</p>
-          ) : myEvents.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>У вас ще немає власних подій.</p>
-          ) : (
-            myEvents.map((ev) => (
-              <div key={ev._id} style={eventItem}>
-                <div style={{ fontWeight: 600 }}>{ev.title}</div>
-                <div style={{ opacity: 0.7 }}>
-                  📆 {new Date(ev.date || ev.start).toLocaleString()}
-                </div>
-                {ev.description && (
-                  <div style={{ opacity: 0.8, marginTop: 4 }}>
-                    📝 {ev.description}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <ChatWindow
+            selectedChat={selectedChat}
+            messages={messages}
+            typingUser={typingUser}
+            chatRef={chatRef}
+            onSend={sendMessage}
+            onlineList={onlineList}
+            emitTyping={emitTyping}
+          />
         </div>
       </div>
     </div>

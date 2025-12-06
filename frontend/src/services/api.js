@@ -1,4 +1,6 @@
-const API_URL = "${BASE_URL}/api";
+import { BASE_URL } from "../config";
+
+const API_URL = `${BASE_URL}/api`;
 
 export const register = async (data) => {
   const res = await fetch(`${API_URL}/auth/register`, {
@@ -6,6 +8,7 @@ export const register = async (data) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+
   return res.json();
 };
 
@@ -15,5 +18,6 @@ export const login = async (data) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+
   return res.json();
 };

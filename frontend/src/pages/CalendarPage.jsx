@@ -17,23 +17,25 @@ import EventPreview from "../components/EventPreview";
 import CalendarManager from "../components/CalendarManager";
 import SettingsModal from "../components/settings/SettingsModal";
 
-import YearView from "./YearView"; // 🔥 годовой просмотр
-import { motion, AnimatePresence } from "framer-motion"; // <-- animations
+import YearView from "./YearView"; 
+import { motion, AnimatePresence } from "framer-motion";
 import { ThemeContext } from "../context/ThemeContext";
 
-// ===========================================
+
+// ===============================
+// Convert date → HTML datetime-local
+// ===============================
 function toLocalInputValue(date) {
   if (!date) return "";
   const d = new Date(date);
 
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hours = String(d.getHours()).padStart(2, "0");
-  const mins = String(d.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hours}:${mins}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes()
+  ).padStart(2, "0")}`;
 }
+
 
 export default function CalendarPage() {
   const { theme } = useContext(ThemeContext);
@@ -55,7 +57,6 @@ export default function CalendarPage() {
   const [events, setEvents] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [holidayCache, setHolidayCache] = useState({});
-
   const [loading, setLoading] = useState(true);
 
   // EVENT MODAL
@@ -78,6 +79,7 @@ export default function CalendarPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
+  // USER
   const token = localStorage.getItem("token");
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const currentUserId = currentUser?._id;
@@ -90,6 +92,7 @@ export default function CalendarPage() {
     holiday: "#ef4444",
   };
 
+
   const [newEvent, setNewEvent] = useState({
     title: "",
     date: "",
@@ -99,17 +102,18 @@ export default function CalendarPage() {
     color: "",
   });
 
-  // ============================
+
+  // ===========================
   // LOAD CALENDARS + EVENTS
-  // ============================
+  // ===========================
   useEffect(() => {
     const fetchAll = async () => {
       try {
         const [calRes, evRes] = await Promise.allSettled([
-          fetch("${BASE_URL}/api/calendars", {
+          fetch(`${BASE_URL}/api/calendars`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch("${BASE_URL}/api/events", {
+          fetch(`${BASE_URL}/api/events`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -137,9 +141,10 @@ export default function CalendarPage() {
     fetchAll();
   }, [token]);
 
-  // ============================
+
+  // ===========================
   // USER ROLE
-  // ============================
+  // ===========================
   const [userRole, setUserRole] = useState("member");
 
   useEffect(() => {
@@ -148,7 +153,6 @@ export default function CalendarPage() {
     const cal = calendars.find(
       (c) => c._id?.toString() === selectedCalendar.toString()
     );
-
     if (!cal) return;
 
     if (cal.isHolidayCalendar) {
@@ -156,33 +160,35 @@ export default function CalendarPage() {
       return;
     }
 
-    const owner =
+    if (
       cal.owner?._id?.toString() === currentUserId ||
-      cal.owner?.toString() === currentUserId;
+      cal.owner?.toString() === currentUserId
+    ) {
+      setUserRole("owner");
+      return;
+    }
 
-    if (owner) return setUserRole("owner");
+    if ((cal.editors || []).some((u) => (u._id || u).toString() === currentUserId)) {
+      setUserRole("editor");
+      return;
+    }
 
-    const editor = (cal.editors || []).some(
-      (u) => (u._id || u).toString() === currentUserId
-    );
-
-    if (editor) return setUserRole("editor");
-
-    const member = (cal.members || []).some(
-      (u) => (u._id || u).toString() === currentUserId
-    );
-
-    if (member) return setUserRole("member");
+    if ((cal.members || []).some((u) => (u._id || u).toString() === currentUserId)) {
+      setUserRole("member");
+      return;
+    }
 
     setUserRole("member");
   }, [selectedCalendar, calendars, currentUserId]);
 
   const canCreateEvents = userRole === "owner" || userRole === "editor";
-  const canEditEvents = userRole === "owner" || userRole === "editor";
+  const canEditEvents = canCreateEvents;
 
-  // ============================
+
+
+  // ===========================
   // LOAD HOLIDAYS
-  // ============================
+  // ===========================
   useEffect(() => {
     if (!token) return;
 
@@ -208,7 +214,6 @@ export default function CalendarPage() {
         }
 
         const data = await res.json();
-
         const mapped = data.map((h) => ({
           _id: `holiday-${year}-${h.date}-${h.title}`,
           title: h.title,
@@ -231,16 +236,19 @@ export default function CalendarPage() {
     return () => (cancelled = true);
   }, [currentDate, token, holidayCache]);
 
-  // ============================
-  // MERGE EVENTS
-  // ============================
-  const selectedCalObj = calendars.find((c) => c._id === selectedCalendar);
 
+
+  // ===========================
+  // EVENTS MERGE
+  // ===========================
+  const selectedCalObj = calendars.find((c) => c._id === selectedCalendar);
   const allEvents = selectedCalObj?.isHolidayCalendar ? holidays : events;
 
-  // ============================
-  // FILTER
-  // ============================
+
+
+  // ===========================
+  // FILTER EVENTS
+  // ===========================
   const filteredEvents = allEvents.filter((e) => {
     if (selectedCalObj?.isHolidayCalendar) {
       return e.category === "holiday";
@@ -252,18 +260,17 @@ export default function CalendarPage() {
         ? e.calendar === selectedCalendar
         : e.calendar._id?.toString() === selectedCalendar);
 
-    const matchSearch = e.title
-      ?.toLowerCase()
-      .includes(searchQuery.toLowerCase());
-
+    const matchSearch = e.title?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = categoryFilter ? e.category === categoryFilter : true;
 
     return matchCal && matchSearch && matchCat;
   });
 
-  // ============================
+
+
+  // ===========================
   // SAVE EVENT
-  // ============================
+  // ===========================
   const handleSaveEvent = async (e) => {
     e.preventDefault();
     if (!canCreateEvents) return alert("У вас немає прав");
@@ -271,7 +278,7 @@ export default function CalendarPage() {
     const url =
       modalMode === "edit"
         ? `${BASE_URL}/api/events/${editEvent._id}`
-        : "${BASE_URL}/api/events";
+        : `${BASE_URL}/api/events`;
 
     const method = modalMode === "edit" ? "PUT" : "POST";
 
@@ -292,9 +299,7 @@ export default function CalendarPage() {
     if (!res.ok) return alert(data.error || "Помилка");
 
     if (modalMode === "edit") {
-      setEvents((prev) =>
-        prev.map((ev) => (ev._id === data._id ? data : ev))
-      );
+      setEvents((prev) => prev.map((ev) => (ev._id === data._id ? data : ev)));
     } else {
       setEvents((prev) => [...prev, data]);
     }
@@ -302,9 +307,11 @@ export default function CalendarPage() {
     closeModal();
   };
 
-  // ============================
+
+
+  // ===========================
   // DELETE EVENT
-  // ============================
+  // ===========================
   const handleDeleteEvent = async (id) => {
     if (!canEditEvents) return alert("У вас немає прав");
     if (!window.confirm("Видалити подію?")) return;
@@ -315,7 +322,6 @@ export default function CalendarPage() {
     });
 
     const data = await res.json();
-
     if (!res.ok) return alert(data.error || "Помилка");
 
     setEvents((prev) => prev.filter((e) => e._id !== id));
@@ -323,9 +329,11 @@ export default function CalendarPage() {
     closeModal();
   };
 
-  // ============================
+
+
+  // ===========================
   // OPEN MODAL
-  // ============================
+  // ===========================
   const openModal = useCallback(
     (mode = "add", event = null) => {
       if (mode === "add" && !canCreateEvents) return;
@@ -379,24 +387,29 @@ export default function CalendarPage() {
     [calendars, selectedCalendar, canCreateEvents, canEditEvents]
   );
 
+
+
   const closeModal = () => {
     setShowModal(false);
     setEditEvent(null);
   };
 
-  // ============================
-  // PREVIEW
-  // ============================
+
+
+  // ===========================
+  // EVENT PREVIEW
+  // ===========================
   const handleEventClick = useCallback((event) => {
     setPreviewEvent(event);
   }, []);
 
-  // ============================
-  // INVITE
-  // ============================
+
+
+  // ===========================
+  // INVITE USER
+  // ===========================
   const handleInvite = async () => {
-    if (!previewEvent) return;
-    if (!inviteEmail.trim()) return;
+    if (!previewEvent || !inviteEmail.trim()) return;
 
     setInviteLoading(true);
 
@@ -414,7 +427,6 @@ export default function CalendarPage() {
       );
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || "Помилка запрошення");
 
       const updated = data.event || data;
@@ -426,16 +438,17 @@ export default function CalendarPage() {
       setPreviewEvent(updated);
       setInviteEmail("");
     } catch (err) {
-      console.error("Invite error:", err);
       alert(err.message);
     }
 
     setInviteLoading(false);
   };
 
-  // ============================
+
+
+  // ===========================
   // REMOVE INVITED USER
-  // ============================
+  // ===========================
   const handleRemoveInviteUser = async (value, type) => {
     if (!previewEvent) return;
 
@@ -446,7 +459,8 @@ export default function CalendarPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}` },
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({ value, type }),
         }
       );
@@ -455,21 +469,20 @@ export default function CalendarPage() {
       if (!res.ok) return alert(data.error || "Помилка");
 
       setEvents((prev) =>
-        prev.map((e) =>
-          e._id === data.event._id ? data.event : e
-        )
+        prev.map((e) => (e._id === data.event._id ? data.event : e))
       );
 
       setPreviewEvent(data.event);
-    } catch (err) {
-      console.error("removeInvite error:", err);
+    } catch {
       alert("Помилка видалення користувача");
     }
   };
 
-  // ============================
-  // LOADING SCREEN (animated)
-  // ============================
+
+
+  // ===========================
+  // LOADING SCREEN
+  // ===========================
   if (loading) {
     return (
       <motion.div
@@ -495,9 +508,11 @@ export default function CalendarPage() {
     );
   }
 
-  // ============================
-  // RENDER (animated)
-  // ============================
+
+
+  // ===========================
+  // RENDER
+  // ===========================
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -592,12 +607,14 @@ export default function CalendarPage() {
             onClose={() => setPreviewEvent(null)}
             onEdit={() =>
               (canEditEvents ||
-                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
+                previewEvent?.creator?.toString() ===
+                  currentUserId?.toString()) &&
               openModal("edit", previewEvent)
             }
             onDelete={() =>
               (canEditEvents ||
-                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
+                previewEvent?.creator?.toString() ===
+                  currentUserId?.toString()) &&
               handleDeleteEvent(previewEvent._id)
             }
             onDeleteSelf={() =>
