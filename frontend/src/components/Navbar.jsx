@@ -78,10 +78,7 @@ export default function Navbar() {
   const isAuthPage = ["/", "/login", "/register"].includes(location.pathname);
 
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-
-  const menuRef = useRef(null);
 
   // LOAD USER
   useEffect(() => {
@@ -106,10 +103,6 @@ export default function Navbar() {
   // NOTIFICATIONS
   // ==============================
   const [notifications, setNotifications] = useState([]);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef(null);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     if (!user) return;
@@ -123,8 +116,7 @@ export default function Navbar() {
     return () => socket.off("notification");
   }, [user]);
 
-  const active = (path) =>
-    location.pathname.startsWith(path);
+  const active = (path) => location.pathname.startsWith(path);
 
   // ==================================================================
   // MOBILE AUTH NAVBAR
@@ -209,7 +201,7 @@ export default function Navbar() {
             {mobileMenu ? "✖" : "☰"}
           </button>
 
-          {/* MOBILE HIDE / DESKTOP SHOW */}
+          {/* DESKTOP RIGHT */}
           <div className="desktop-right" style={styles.row}>
             <NotificationBell />
             <UserMenu
@@ -224,7 +216,7 @@ export default function Navbar() {
       </div>
 
       {/* ==========================
-          MOBILE DROPDOWN MENU
+          MOBILE MENU
       =========================== */}
       <AnimatePresence>
         {mobileMenu && (
@@ -241,16 +233,25 @@ export default function Navbar() {
               gap: 14,
             }}
           >
-            <NavButton theme={theme} active={active("/calendar")}
-              onClick={() => { setMobileMenu(false); navigate("/calendar"); }}
-            >
+            <NavButton theme={theme} onClick={() => { setMobileMenu(false); navigate("/calendar"); }}>
               📅 Календар
             </NavButton>
 
-            <NavButton theme={theme} active={active("/chat")}
-              onClick={() => { setMobileMenu(false); navigate("/chat"); }}
-            >
+            <NavButton theme={theme} onClick={() => { setMobileMenu(false); navigate("/chat"); }}>
               💬 Чати
+            </NavButton>
+
+            {/* 🔥 MOBILE PROFILE */}
+            <NavButton theme={theme} onClick={() => { setMobileMenu(false); navigate("/profile"); }}>
+              👤 Профіль
+            </NavButton>
+
+            {/* 🔥 MOBILE SETTINGS */}
+            <NavButton theme={theme} onClick={() => { 
+              setMobileMenu(false);
+              window.dispatchEvent(new CustomEvent("open_settings"));
+            }}>
+              ⚙️ Налаштування
             </NavButton>
 
             <button style={miniBtn(theme)} onClick={() => logout()}>
@@ -295,18 +296,20 @@ function UserMenu({ user, avatarLetter, theme, logout, navigate }) {
           fontWeight: 600,
         }}
       >
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          overflow: "hidden",
-          background: theme.primarySoft,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          color: theme.primary,
-          fontWeight: 700,
-        }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            overflow: "hidden",
+            background: theme.primarySoft,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            color: theme.primary,
+            fontWeight: 700,
+          }}
+        >
           {user?.avatar ? (
             <img
               src={`${BASE_URL}${user.avatar}`}
@@ -348,11 +351,16 @@ function UserMenu({ user, avatarLetter, theme, logout, navigate }) {
 }
 
 // =======================================
-// NOTIFICATION BELL (COMPACT VERSION)
+// NOTIFICATION BELL
 // =======================================
 function NotificationBell() {
   return (
-    <button style={{ fontSize: 22, background: "transparent", border: "none", cursor: "pointer" }}>
+    <button style={{
+      fontSize: 22,
+      background: "transparent",
+      border: "none",
+      cursor: "pointer"
+    }}>
       🔔
     </button>
   );
