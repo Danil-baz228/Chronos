@@ -24,14 +24,15 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // password mismatch
     if (form.password !== form.confirm) {
       setMessage(t("register.passwordMismatch"));
       return;
     }
 
+    // === ВАЖЛИВО: Backend чекає name, email, password ===
     const res = await registerAPI({
-      username: form.username,
-      fullName: form.fullName,
+      name: form.fullName,   // <-- МАПІНГ ДЛЯ BACKEND
       email: form.email,
       password: form.password,
     });
