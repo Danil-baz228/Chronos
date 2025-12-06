@@ -7,7 +7,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const [form, setForm] = useState({
-    email: "",
+    emailOrUsername: "",
     password: "",
   });
 
@@ -21,9 +21,9 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // отправляем на backend email + password
+    // отправляем emailOrUsername + password
     const res = await loginAPI({
-      email: form.email,
+      emailOrUsername: form.emailOrUsername,
       password: form.password,
     });
 
@@ -48,8 +48,10 @@ export default function Login() {
         >
           <input
             placeholder={t("login.email")}
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            value={form.emailOrUsername}
+            onChange={(e) =>
+              setForm({ ...form, emailOrUsername: e.target.value })
+            }
             required
             style={input(theme)}
           />
@@ -90,6 +92,7 @@ export default function Login() {
     </div>
   );
 }
+
 
 // ---------- STYLES ----------
 const wrapper = (theme) => ({
