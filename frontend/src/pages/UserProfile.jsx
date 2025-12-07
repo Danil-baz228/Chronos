@@ -78,32 +78,39 @@ export default function UserProfile() {
   // =====================================
   // UPLOAD AVATAR
   // =====================================
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+const handleAvatarChange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const formData = new FormData();
-    formData.append("avatar", file);
+  const formData = new FormData();
+  formData.append("avatar", file);
 
-    try {
-      const res = await fetch(`${BASE_URL}/api/users/avatar`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+  try {
+    const res = await fetch(`${BASE_URL}/api/users/avatar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) return alert(data.error || "Помилка");
+    if (!res.ok) return alert(data.error || "Помилка");
 
-      const updated = { ...user, avatar: data.avatarUrl };
-      setUser(updated);
-      localStorage.setItem("user", JSON.stringify(updated));
-    } catch (e) {
-      console.error("Avatar upload error:", e);
-      alert("Не вдалося завантажити аватар");
-    }
-  };
+    // 🔥 Оновлюємо дані користувача
+    const updated = { ...user, avatar: data.avatarUrl };
+    setUser(updated);
+    localStorage.setItem("user", JSON.stringify(updated));
+
+    // 🔥 Сповіщаємо Navbar та інші компоненти про зміну
+    window.dispatchEvent(new Event("user_updated"));
+    window.dispatchEvent(new Event("avatar_updated"));
+
+  } catch (e) {
+    console.error("Avatar upload error:", e);
+    alert("Не вдалося завантажити аватар");
+  }
+};
+
 
   // ================================
   // STYLES

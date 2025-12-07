@@ -375,8 +375,30 @@ export default function Navbar() {
 function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const menuRef = useRef(null);
+
+  const closeMenu = () => setMenuOpen(false);
+
+  // CLICK OUTSIDE FIX
+  useEffect(() => {
+    function handleClick(e) {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+    };
+  }, [menuOpen]);
+  
+
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={menuRef} style={{ position: "relative" }}>
       <button
         onClick={() => setMenuOpen(!menuOpen)}
         style={{
@@ -420,7 +442,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
         {user?.username}
       </button>
 
-      {/* MENU */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -440,12 +461,33 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
               zIndex: 6000,
             }}
           >
-            <MenuItem label="Профіль" onClick={() => navigate("/profile")} />
+            {/* PROFILE */}
+            <MenuItem
+              label="Профіль"
+              onClick={() => {
+                closeMenu();
+                navigate("/profile");
+              }}
+            />
+
+            {/* SETTINGS */}
             <MenuItem
               label="Налаштування"
-              onClick={() => window.dispatchEvent(new CustomEvent("open_settings"))}
+              onClick={() => {
+                closeMenu();
+                window.dispatchEvent(new CustomEvent("open_settings"));
+              }}
             />
-            <MenuItem label="Вийти" danger onClick={logout} />
+
+            {/* LOGOUT */}
+            <MenuItem
+              label="Вийти"
+              danger
+              onClick={() => {
+                closeMenu();
+                logout();
+              }}
+            />
           </motion.div>
         )}
       </AnimatePresence>
