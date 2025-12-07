@@ -1,5 +1,5 @@
 // =======================================
-// NAVBAR WITH FULL MOBILE VERSION
+// NAVBAR WITH FULL MOBILE VERSION + NOTIFICATIONS RESTORED
 // =======================================
 
 import React, { useContext, useState, useRef, useEffect } from "react";
@@ -34,30 +34,16 @@ function ChronusLogo({ theme, onClick }) {
     >
       <motion.span
         initial={{ opacity: 0, x: -10 }}
-        animate={{
-          opacity: [0, 1, 1, 0],
-          x: [-10, 0, 0, 0]
-        }}
-        transition={{
-          duration: 2.6,
-          repeat: Infinity,
-          repeatDelay: 0.4
-        }}
+        animate={{ opacity: [0, 1, 1, 0], x: [-10, 0, 0, 0] }}
+        transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 0.4 }}
       >
         C
       </motion.span>
 
       <motion.span
         initial={{ opacity: 0, x: 30 }}
-        animate={{
-          opacity: [0, 0, 1, 1, 0],
-          x: [30, 15, 0, 0, 0]
-        }}
-        transition={{
-          duration: 2.6,
-          repeat: Infinity,
-          repeatDelay: 0.4
-        }}
+        animate={{ opacity: [0, 0, 1, 1, 0], x: [30, 15, 0, 0, 0] }}
+        transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 0.4 }}
       >
         hronus
       </motion.span>
@@ -100,21 +86,86 @@ export default function Navbar() {
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   // ==============================
-  // NOTIFICATIONS
+  // NOTIFICATIONS (FULL SYSTEM)
   // ==============================
   const [notifications, setNotifications] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef(null);
 
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Load notifications from API
+  useEffect(() => {
+    if (!user) return;
+
+    const load = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/notifications`, {
+          headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+        });
+        const list = await res.json();
+        setNotifications(list);
+      } catch (err) {
+        console.log("Notif load error", err);
+      }
+    };
+
+    load();
+  }, [user]);
+
+  // Socket listener
   useEffect(() => {
     if (!user) return;
 
     socket.emit("user_online", user._id);
 
     socket.on("notification", (notif) => {
-      setNotifications((p) => [notif, ...p]);
+      setNotifications((prev) => [notif, ...prev]);
     });
 
     return () => socket.off("notification");
   }, [user]);
+
+  const markAsRead = async (id) => {
+    await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    });
+
+    setNotifications((prev) =>
+      prev.map((n) => (n._id === id ? { ...n, read: true } : n))
+    );
+  };
+
+  const markAllAsRead = async () => {
+    await fetch(`${BASE_URL}/api/notifications/read-all`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    });
+
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearAll = async () => {
+    await fetch(`${BASE_URL}/api/notifications/clear-all`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    });
+
+    setNotifications([]);
+  };
+
+  // Close popup on click outside
+  useEffect(() => {
+    function handleClick(e) {
+      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [notifOpen]);
 
   const active = (path) => location.pathname.startsWith(path);
 
@@ -128,21 +179,32 @@ export default function Navbar() {
         animate={{ opacity: 1, y: 0 }}
         style={{
           position: "fixed",
-          top: 0, width: "100%", height: 60, zIndex: 100,
-          background: "transparent"
+          top: 0,
+          width: "100%",
+          height: 60,
+          zIndex: 100,
+          background: "transparent",
         }}
       >
         <div style={styles.rowBetween}>
           <ChronusLogo theme={theme} onClick={() => navigate("/login")} />
 
           <div style={{ display: "flex", gap: 10 }}>
-            <button style={miniBtn(theme)}
+            <button
+              style={miniBtn(theme)}
               onClick={() => window.dispatchEvent(new CustomEvent("toggle_theme"))}
-            >🎨</button>
+            >
+              🎨
+            </button>
 
-            <button style={miniBtn(theme)}
-              onClick={() => window.dispatchEvent(new CustomEvent("toggle_language"))}
-            >🌐</button>
+            <button
+              style={miniBtn(theme)}
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("toggle_language"))
+              }
+            >
+              🌐
+            </button>
           </div>
         </div>
       </motion.nav>
@@ -150,7 +212,7 @@ export default function Navbar() {
   }
 
   // ==================================================================
-  // MAIN NAVBAR (DESKTOP + MOBILE)
+  // MAIN NAVBAR
   // ==================================================================
   return (
     <motion.nav
@@ -173,11 +235,19 @@ export default function Navbar() {
 
           {/* DESKTOP NAV */}
           <div className="desktop-nav" style={styles.desktopNav}>
-            <NavButton theme={theme} active={active("/calendar")} onClick={() => navigate("/calendar")}>
+            <NavButton
+              theme={theme}
+              active={active("/calendar")}
+              onClick={() => navigate("/calendar")}
+            >
               📅 Календар
             </NavButton>
 
-            <NavButton theme={theme} active={active("/chat")} onClick={() => navigate("/chat")}>
+            <NavButton
+              theme={theme}
+              active={active("/chat")}
+              onClick={() => navigate("/chat")}
+            >
               💬 Чати
             </NavButton>
           </div>
@@ -185,39 +255,163 @@ export default function Navbar() {
 
         {/* RIGHT */}
         <div style={styles.row}>
-          {/* MOBILE BURGER */}
-          <button
-            className="mobile-burger"
-            onClick={() => setMobileMenu((o) => !o)}
-            style={{
-              display: "none",
-              fontSize: 28,
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              color: theme.text,
-            }}
-          >
-            {mobileMenu ? "✖" : "☰"}
-          </button>
+          {/* ====================== */}
+          {/* NOTIFICATION BELL */}
+          {/* ====================== */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setNotifOpen((o) => !o)}
+              style={{
+                fontSize: 22,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: theme.text,
+                position: "relative",
+              }}
+            >
+              🔔
 
-          {/* DESKTOP RIGHT */}
-          <div className="desktop-right" style={styles.row}>
-            <NotificationBell />
-            <UserMenu
-              user={user}
-              avatarLetter={avatarLetter}
-              theme={theme}
-              logout={logout}
-              navigate={navigate}
-            />
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -4,
+                    right: -6,
+                    background: "red",
+                    color: "white",
+                    fontSize: 12,
+                    padding: "1px 6px",
+                    borderRadius: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* POPUP */}
+            <AnimatePresence>
+              {notifOpen && (
+                <motion.div
+                  ref={notifRef}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "110%",
+                    width: 320,
+                    maxHeight: 420,
+                    overflowY: "auto",
+                    background: theme.cardBg,
+                    border: theme.cardBorder,
+                    borderRadius: 16,
+                    boxShadow: theme.cardShadow,
+                    padding: 14,
+                    zIndex: 3000,
+                  }}
+                >
+                  {/* Buttons */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 12,
+                      gap: 8,
+                    }}
+                  >
+                    <button
+                      onClick={markAllAsRead}
+                      style={{
+                        flex: 1,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        background: theme.primarySoft,
+                        color: theme.primary,
+                        border: theme.cardBorder,
+                        cursor: "pointer",
+                        fontWeight: 600,
+                      }}
+                    >
+                      ✓ Прочитати всі
+                    </button>
+
+                    <button
+                      onClick={clearAll}
+                      style={{
+                        flex: 1,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                      }}
+                    >
+                      🗑 Очистити
+                    </button>
+                  </div>
+
+                  {/* Notifications */}
+                  {notifications.length === 0 ? (
+                    <div
+                      style={{
+                        padding: 20,
+                        opacity: 0.6,
+                        textAlign: "center",
+                      }}
+                    >
+                      Немає повідомлень
+                    </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <div
+                        key={n._id}
+                        onClick={() => markAsRead(n._id)}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          marginBottom: 10,
+                          cursor: "pointer",
+                          background: n.read
+                            ? theme.inputBg
+                            : theme.primarySoft,
+                          border: n.read
+                            ? "1px solid transparent"
+                            : `1px solid ${theme.primary}`,
+                          transition: "0.15s",
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                          {n.message}
+                        </div>
+                        <div style={{ opacity: 0.6, fontSize: 12 }}>
+                          {new Date(n.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
+          {/* USER MENU */}
+          <UserMenu
+            user={user}
+            avatarLetter={avatarLetter}
+            theme={theme}
+            logout={logout}
+            navigate={navigate}
+          />
         </div>
       </div>
 
-      {/* ==========================
-          MOBILE MENU
-      =========================== */}
+      {/* MOBILE MENU */}
       <AnimatePresence>
         {mobileMenu && (
           <motion.div
@@ -233,24 +427,43 @@ export default function Navbar() {
               gap: 14,
             }}
           >
-            <NavButton theme={theme} onClick={() => { setMobileMenu(false); navigate("/calendar"); }}>
+            <NavButton
+              theme={theme}
+              onClick={() => {
+                setMobileMenu(false);
+                navigate("/calendar");
+              }}
+            >
               📅 Календар
             </NavButton>
 
-            <NavButton theme={theme} onClick={() => { setMobileMenu(false); navigate("/chat"); }}>
+            <NavButton
+              theme={theme}
+              onClick={() => {
+                setMobileMenu(false);
+                navigate("/chat");
+              }}
+            >
               💬 Чати
             </NavButton>
 
-            {/* 🔥 MOBILE PROFILE */}
-            <NavButton theme={theme} onClick={() => { setMobileMenu(false); navigate("/profile"); }}>
+            <NavButton
+              theme={theme}
+              onClick={() => {
+                setMobileMenu(false);
+                navigate("/profile");
+              }}
+            >
               👤 Профіль
             </NavButton>
 
-            {/* 🔥 MOBILE SETTINGS */}
-            <NavButton theme={theme} onClick={() => { 
-              setMobileMenu(false);
-              window.dispatchEvent(new CustomEvent("open_settings"));
-            }}>
+            <NavButton
+              theme={theme}
+              onClick={() => {
+                setMobileMenu(false);
+                window.dispatchEvent(new CustomEvent("open_settings"));
+              }}
+            >
               ⚙️ Налаштування
             </NavButton>
 
@@ -316,7 +529,9 @@ function UserMenu({ user, avatarLetter, theme, logout, navigate }) {
               alt="avatar"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
-          ) : avatarLetter}
+          ) : (
+            avatarLetter
+          )}
         </div>
 
         {user?.username}
@@ -341,28 +556,17 @@ function UserMenu({ user, avatarLetter, theme, logout, navigate }) {
             }}
           >
             <MenuItem label="Профіль" onClick={() => navigate("/profile")} />
-            <MenuItem label="Налаштування" onClick={() => window.dispatchEvent(new CustomEvent("open_settings"))} />
+            <MenuItem
+              label="Налаштування"
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("open_settings"))
+              }
+            />
             <MenuItem label="Вийти" danger onClick={logout} />
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-// =======================================
-// NOTIFICATION BELL
-// =======================================
-function NotificationBell() {
-  return (
-    <button style={{
-      fontSize: 22,
-      background: "transparent",
-      border: "none",
-      cursor: "pointer"
-    }}>
-      🔔
-    </button>
   );
 }
 
@@ -436,4 +640,3 @@ const styles = {
     borderRadius: 999,
   },
 };
-
