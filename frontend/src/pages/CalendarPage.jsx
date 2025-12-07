@@ -1,5 +1,5 @@
 // =======================
-//   CalendarPage.jsx — BEAUTIFUL ANIMATED + YEAR VIEW
+//   CalendarPage.jsx — BEAUTIFUL ANIMATED + YEAR VIEW (Realtime)
 // =======================
 
 import React, {
@@ -17,9 +17,12 @@ import EventPreview from "../components/EventPreview";
 import CalendarManager from "../components/CalendarManager";
 import SettingsModal from "../components/settings/SettingsModal";
 
-import YearView from "./YearView"; 
+import YearView from "./YearView";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeContext } from "../context/ThemeContext";
+
+import { socket } from "../socket"; // <<< 🔥 добавлено
+
 
 
 // ===============================
@@ -35,7 +38,6 @@ function toLocalInputValue(date) {
     d.getMinutes()
   ).padStart(2, "0")}`;
 }
-
 
 export default function CalendarPage() {
   const { theme } = useContext(ThemeContext);
@@ -83,7 +85,6 @@ export default function CalendarPage() {
   const token = localStorage.getItem("token");
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const currentUserId = currentUser?._id;
-  const currentUserEmail = currentUser?.email;
 
   const colorByCategory = {
     arrangement: "#3b82f6",
@@ -91,7 +92,6 @@ export default function CalendarPage() {
     task: "#22c55e",
     holiday: "#ef4444",
   };
-
 
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -101,6 +101,55 @@ export default function CalendarPage() {
     description: "",
     color: "",
   });
+
+
+
+  // ============================================================
+  // 🔥 REALTIME: JOIN / LEAVE CALENDAR ROOMS
+  // ============================================================
+  useEffect(() => {
+    if (!selectedCalendar) return;
+
+    console.log("📡 joining calendar socket room:", selectedCalendar);
+    socket.emit("join_calendar", selectedCalendar);
+
+    return () => {
+      console.log("📡 leaving calendar socket room:", selectedCalendar);
+      socket.emit("leave_calendar", selectedCalendar);
+    };
+  }, [selectedCalendar]);
+
+
+
+  // ============================================================
+  // 🔥 REALTIME: RECEIVE EVENT UPDATES
+  // ============================================================
+  useEffect(() => {
+    function handleRealtimeUpdate(data) {
+      console.log("🔥 REALTIME EVENT:", data);
+
+      if (data.type === "created") {
+        setEvents((prev) => [...prev, data.event]);
+      }
+
+      if (data.type === "updated") {
+        setEvents((prev) =>
+          prev.map((ev) => (ev._id === data.event._id ? data.event : ev))
+        );
+      }
+
+      if (data.type === "deleted") {
+        setEvents((prev) => prev.filter((ev) => ev._id !== data.eventId));
+      }
+    }
+
+    socket.on("calendar_update", handleRealtimeUpdate);
+
+    return () => socket.off("calendar_update", handleRealtimeUpdate);
+  }, []);
+
+
+
 
 
   // ===========================
@@ -140,6 +189,7 @@ export default function CalendarPage() {
 
     fetchAll();
   }, [token]);
+
 
 
   // ===========================
@@ -238,11 +288,13 @@ export default function CalendarPage() {
 
 
 
+
   // ===========================
   // EVENTS MERGE
   // ===========================
   const selectedCalObj = calendars.find((c) => c._id === selectedCalendar);
   const allEvents = selectedCalObj?.isHolidayCalendar ? holidays : events;
+
 
 
 
@@ -265,6 +317,7 @@ export default function CalendarPage() {
 
     return matchCal && matchSearch && matchCat;
   });
+
 
 
 
@@ -298,14 +351,9 @@ export default function CalendarPage() {
 
     if (!res.ok) return alert(data.error || "Помилка");
 
-    if (modalMode === "edit") {
-      setEvents((prev) => prev.map((ev) => (ev._id === data._id ? data : ev)));
-    } else {
-      setEvents((prev) => [...prev, data]);
-    }
-
     closeModal();
   };
+
 
 
 
@@ -324,10 +372,9 @@ export default function CalendarPage() {
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Помилка");
 
-    setEvents((prev) => prev.filter((e) => e._id !== id));
-    setPreviewEvent(null);
     closeModal();
   };
+
 
 
 
@@ -389,10 +436,12 @@ export default function CalendarPage() {
 
 
 
+
   const closeModal = () => {
     setShowModal(false);
     setEditEvent(null);
   };
+
 
 
 
@@ -402,6 +451,7 @@ export default function CalendarPage() {
   const handleEventClick = useCallback((event) => {
     setPreviewEvent(event);
   }, []);
+
 
 
 
@@ -429,13 +479,6 @@ export default function CalendarPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Помилка запрошення");
 
-      const updated = data.event || data;
-
-      setEvents((prev) =>
-        prev.map((e) => (e._id === updated._id ? updated : e))
-      );
-
-      setPreviewEvent(updated);
       setInviteEmail("");
     } catch (err) {
       alert(err.message);
@@ -443,6 +486,7 @@ export default function CalendarPage() {
 
     setInviteLoading(false);
   };
+
 
 
 
@@ -467,16 +511,12 @@ export default function CalendarPage() {
 
       const data = await res.json();
       if (!res.ok) return alert(data.error || "Помилка");
-
-      setEvents((prev) =>
-        prev.map((e) => (e._id === data.event._id ? data.event : e))
-      );
-
-      setPreviewEvent(data.event);
     } catch {
       alert("Помилка видалення користувача");
     }
   };
+
+
 
 
 
@@ -507,6 +547,8 @@ export default function CalendarPage() {
       </motion.div>
     );
   }
+
+
 
 
 
@@ -607,14 +649,12 @@ export default function CalendarPage() {
             onClose={() => setPreviewEvent(null)}
             onEdit={() =>
               (canEditEvents ||
-                previewEvent?.creator?.toString() ===
-                  currentUserId?.toString()) &&
+                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
               openModal("edit", previewEvent)
             }
             onDelete={() =>
               (canEditEvents ||
-                previewEvent?.creator?.toString() ===
-                  currentUserId?.toString()) &&
+                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
               handleDeleteEvent(previewEvent._id)
             }
             onDeleteSelf={() =>
@@ -625,12 +665,6 @@ export default function CalendarPage() {
             inviteEmail={inviteEmail}
             setInviteEmail={setInviteEmail}
             inviteLoading={inviteLoading}
-            canManage={
-              canEditEvents ||
-              previewEvent?.creator?.toString() === currentUserId?.toString()
-            }
-            currentUserId={currentUserId}
-            currentUserEmail={currentUserEmail}
           />
         )}
       </AnimatePresence>

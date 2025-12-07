@@ -12,15 +12,12 @@ const PORT = process.env.PORT || 5000;
 
 const server = http.createServer(app);
 
-const io = new Server(server, {
+export const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
   },
 });
-
-
-export { io };
 
 // ============================================
 // 🔥 ONLINE USERS MAP
@@ -77,17 +74,17 @@ io.on("connection", (socket) => {
   });
 
   // ----------------------------------------------------
-  // 🌟 КАЛЕНДАРИ — Real-time
+  // 🌟 КАЛЕНДАРИ — REALTIME
   // ----------------------------------------------------
 
-  // пользователь входит в календарь
+  // Пользователь входит в календарь
   socket.on("join_calendar", (calendarId) => {
     if (!calendarId) return;
     console.log(`📅 join calendar ${calendarId}`);
     socket.join(`calendar:${calendarId}`);
   });
 
-  // пользователь выходит из календаря
+  // Пользователь выходит из календаря
   socket.on("leave_calendar", (calendarId) => {
     if (!calendarId) return;
     console.log(`📅 leave calendar ${calendarId}`);
