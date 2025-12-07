@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
@@ -13,15 +13,31 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { LanguageProvider } from "./context/LanguageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 
-import Navbar from "./components/Navbar";   // <-- ДОБАВИЛ !!!
+import Navbar from "./components/Navbar";
+import SettingsModal from "./components/settings/SettingsModal";   // <--- ВАЖНО!
 
 function AppContent() {
   const { user } = useContext(AuthContext);
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Слушаем событие от Navbar для открытия настроек
+  useEffect(() => {
+    const handler = () => setSettingsOpen(true);
+    window.addEventListener("open_settings", handler);
+    return () => window.removeEventListener("open_settings", handler);
+  }, []);
+
   return (
     <>
-      <Navbar />  
-      
+      <Navbar />
+
+      {/* ГЛОБАЛЬНОЕ ОКНО НАСТРОЕК */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+
       <Routes>
         <Route
           path="/"
