@@ -1,5 +1,5 @@
 // =======================================
-// NAVBAR — MOBILE CHAT BUTTON + FIXED NOTIFICATIONS
+// NAVBAR — MOBILE SWITCH + FIXED NOTIFICATIONS
 // =======================================
 
 import React, { useContext, useState, useRef, useEffect } from "react";
@@ -66,7 +66,7 @@ export default function Navbar() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")) || null);
   const [avatarVersion, setAvatarVersion] = useState(0);
 
-  // LOAD USER + REFRESH AVATAR
+  // LOAD USER + UPDATE AVATAR
   useEffect(() => {
     const handler = () => {
       const updated = JSON.parse(localStorage.getItem("user"));
@@ -130,7 +130,7 @@ export default function Navbar() {
     return () => socket.off("notification", handler);
   }, [user]);
 
-  // CLICK OUTSIDE
+  // CLICK OUTSIDE NOTIFICATIONS
   useEffect(() => {
     function handler(e) {
       if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
@@ -139,6 +139,7 @@ export default function Navbar() {
     }
     document.addEventListener("mousedown", handler);
     document.addEventListener("touchstart", handler);
+
     return () => {
       document.removeEventListener("mousedown", handler);
       document.removeEventListener("touchstart", handler);
@@ -174,7 +175,7 @@ export default function Navbar() {
   const active = (path) => location.pathname.startsWith(path);
 
   // =======================================
-  // AUTH PAGES NAVBAR
+  // AUTH NAVBAR
   // =======================================
   if (isAuthPage) {
     return (
@@ -215,26 +216,45 @@ export default function Navbar() {
       }}
     >
       <div style={styles.rowBetween}>
+
         {/* LEFT */}
         <ChronusLogo theme={theme} onClick={() => navigate("/calendar")} />
 
-        {/* RIGHT SIDE (DESKTOP + MOBILE) */}
+        {/* RIGHT SIDE */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           
-          {/* MOBILE CHAT BUTTON */}
-          <button
-            className="mobile-chat-btn"
-            onClick={() => navigate("/chat")}
-            style={{
-              fontSize: 22,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              display: "none",
-            }}
-          >
-            💬
-          </button>
+          {/* MOBILE SWITCH (Calendar ↔ Chat) */}
+          <div className="mobile-switch" style={{ display: "none" }}>
+            {location.pathname.startsWith("/calendar") ? (
+              <button
+                onClick={() => navigate("/chat")}
+                style={{
+                  fontSize: 20,
+                  background: theme.primarySoft,
+                  border: "1px solid " + theme.primary,
+                  padding: "6px 12px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                💬
+              </button>
+            ) : location.pathname.startsWith("/chat") ? (
+              <button
+                onClick={() => navigate("/calendar")}
+                style={{
+                  fontSize: 20,
+                  background: theme.primarySoft,
+                  border: "1px solid " + theme.primary,
+                  padding: "6px 12px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                📅
+              </button>
+            ) : null}
+          </div>
 
           {/* DESKTOP NAV */}
           <div className="desktop-nav" style={styles.desktopNav}>
@@ -292,12 +312,12 @@ export default function Navbar() {
                     right: 0,
                     top: "110%",
                     width: 320,
-                    maxWidth: "90vw",
-                    maxHeight: 420,
+                    maxWidth: "92vw",
+                    maxHeight: "60vh",
                     overflowY: "auto",
                     background: theme.cardBg,
                     border: theme.cardBorder,
-                    borderRadius: 16,
+                    borderRadius: 14,
                     boxShadow: theme.cardShadow,
                     padding: 14,
                     zIndex: 5000,
@@ -354,13 +374,13 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE CHAT BUTTON STYLE */}
+      {/* MOBILE STYLE */}
       <style>{`
         @media (max-width: 768px) {
           .desktop-nav {
             display: none !important;
           }
-          .mobile-chat-btn {
+          .mobile-switch {
             display: block !important;
           }
         }
@@ -374,12 +394,11 @@ export default function Navbar() {
 // =======================================
 function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }) {
   const [menuOpen, setMenuOpen] = useState(false);
-
   const menuRef = useRef(null);
 
   const closeMenu = () => setMenuOpen(false);
 
-  // CLICK OUTSIDE FIX
+  // CLICK OUTSIDE
   useEffect(() => {
     function handleClick(e) {
       if (menuOpen && menuRef.current && !menuRef.current.contains(e.target)) {
@@ -395,7 +414,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
       document.removeEventListener("touchstart", handleClick);
     };
   }, [menuOpen]);
-  
 
   return (
     <div ref={menuRef} style={{ position: "relative" }}>
@@ -442,6 +460,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
         {user?.username}
       </button>
 
+      {/* MENU */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -461,7 +480,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
               zIndex: 6000,
             }}
           >
-            {/* PROFILE */}
             <MenuItem
               label="Профіль"
               onClick={() => {
@@ -470,7 +488,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
               }}
             />
 
-            {/* SETTINGS */}
             <MenuItem
               label="Налаштування"
               onClick={() => {
@@ -479,7 +496,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
               }}
             />
 
-            {/* LOGOUT */}
             <MenuItem
               label="Вийти"
               danger
