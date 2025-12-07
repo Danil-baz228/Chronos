@@ -36,10 +36,6 @@ export default function CalendarManager({
   });
   const [inviteResult, setInviteResult] = useState(null);
 
-  // =====================================================================
-  // HELPERS
-  // =====================================================================
-
   const isMainCalendar = (c) => c?.isMain || c?.name === "Main Calendar";
   const isHolidayCalendar = (c) => c?.isHolidayCalendar === true;
 
