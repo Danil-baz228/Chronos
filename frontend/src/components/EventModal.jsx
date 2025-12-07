@@ -1,8 +1,27 @@
-// src/components/calendar/EventModal.jsx
+// ===============================
+// EventModal.jsx — FIXED TIMEZONE
+// ===============================
 
 import React, { useContext } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
+
+// 🔥 Конвертация UTC → local для datetime-local input
+function toLocalInput(dateString) {
+  if (!dateString) return "";
+
+  const date = new Date(dateString);
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const h = pad(date.getHours());
+  const min = pad(date.getMinutes());
+
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
 
 export default function EventModal({
   isOpen,
@@ -13,8 +32,6 @@ export default function EventModal({
   onSave,
   onDelete,
   editEvent,
-
-  // 🔥 добавляем права
   canEditEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
@@ -59,9 +76,7 @@ export default function EventModal({
             fontWeight: 700,
           }}
         >
-          {mode === "edit"
-            ? t("modal.editTitle")
-            : t("modal.addTitle")}
+          {mode === "edit" ? t("modal.editTitle") : t("modal.addTitle")}
         </h3>
 
         <form
@@ -72,7 +87,7 @@ export default function EventModal({
             gap: 10,
           }}
         >
-          {/* ------------------ Название ------------------ */}
+          {/* TITLE */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.name")}</span>
             <input
@@ -91,17 +106,17 @@ export default function EventModal({
             />
           </label>
 
-          {/* ------------------ Дата/время ------------------ */}
+          {/* DATE FIXED */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.datetime")}</span>
             <input
               type="datetime-local"
-              value={newEvent.date}
+              value={toLocalInput(newEvent.date)}
               onChange={(e) =>
                 !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
-                  date: e.target.value,
+                  date: e.target.value, // сохраняем как есть, backend добавит Z
                 }))
               }
               disabled={readOnly}
@@ -110,7 +125,7 @@ export default function EventModal({
             />
           </label>
 
-          {/* ------------------ Duration ------------------ */}
+          {/* DURATION */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.duration")}</span>
             <input
@@ -129,7 +144,7 @@ export default function EventModal({
             />
           </label>
 
-          {/* ------------------ Category ------------------ */}
+          {/* CATEGORY */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.category")}</span>
             <select
@@ -144,17 +159,13 @@ export default function EventModal({
               disabled={readOnly}
               style={inputStyle(theme)}
             >
-              <option value="arrangement">
-                {t("category.arrangement")}
-              </option>
-              <option value="reminder">
-                {t("category.reminder")}
-              </option>
+              <option value="arrangement">{t("category.arrangement")}</option>
+              <option value="reminder">{t("category.reminder")}</option>
               <option value="task">{t("category.task")}</option>
             </select>
           </label>
 
-          {/* ------------------ Color ------------------ */}
+          {/* COLOR */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.color")}</span>
             <input
@@ -177,7 +188,7 @@ export default function EventModal({
             />
           </label>
 
-          {/* ------------------ Description ------------------ */}
+          {/* DESCRIPTION */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.description")}</span>
             <textarea
@@ -198,9 +209,7 @@ export default function EventModal({
             />
           </label>
 
-          {/* -------------------------------------------------- */}
-          {/*                   КНОПКИ УПРАВЛЕНИЯ              */}
-          {/* -------------------------------------------------- */}
+          {/* BUTTONS */}
           <div
             style={{
               display: "flex",
@@ -209,7 +218,6 @@ export default function EventModal({
               gap: 8,
             }}
           >
-            {/* Save */}
             {!readOnly && (
               <button
                 type="submit"
@@ -228,7 +236,6 @@ export default function EventModal({
               </button>
             )}
 
-            {/* Delete only if editing + allowed */}
             {!readOnly && mode === "edit" && editEvent && (
               <button
                 type="button"
@@ -248,7 +255,6 @@ export default function EventModal({
               </button>
             )}
 
-            {/* Close */}
             <button
               type="button"
               onClick={onClose}

@@ -19,6 +19,9 @@ export const io = new Server(server, {
   },
 });
 
+// ⬅️ VERY IMPORTANT: делаем io глобальным, чтобы контроллеры могли использовать broadcast
+global.io = io;
+
 // ============================================
 // 🔥 ONLINE USERS MAP
 // ============================================
@@ -77,14 +80,12 @@ io.on("connection", (socket) => {
   // 🌟 КАЛЕНДАРИ — REALTIME
   // ----------------------------------------------------
 
-  // Пользователь входит в календарь
   socket.on("join_calendar", (calendarId) => {
     if (!calendarId) return;
     console.log(`📅 join calendar ${calendarId}`);
-    socket.join(`calendar:${calendarId}`);
+    socket.join(`calendar:${calendarId}`);   // <-- единый формат
   });
 
-  // Пользователь выходит из календаря
   socket.on("leave_calendar", (calendarId) => {
     if (!calendarId) return;
     console.log(`📅 leave calendar ${calendarId}`);

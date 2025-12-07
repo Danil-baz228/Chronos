@@ -1,9 +1,10 @@
 // src/components/CalendarManager.jsx
 
-import React, { useState, useContext, useMemo } from "react";
+import React, { useState, useContext, useMemo, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { AuthContext } from "../context/AuthContext";
 import { BASE_URL } from "../config";
+import { socket } from "../socket";
 
 export default function CalendarManager({
   isOpen,
@@ -74,6 +75,32 @@ export default function CalendarManager({
     return "member";
   }, [membersCalendar, currentUserId]);
 
+  // ===============================
+  // 🔥 REALTIME – обновление календарей
+  // ===============================
+  useEffect(() => {
+    if (!socket) return;
+
+    const handler = ({ calendar }) => {
+      // Обновляем список календарей
+      setCalendars((prev) => {
+        const exists = prev.some((c) => c._id === calendar._id);
+        if (exists) {
+          return prev.map((c) => (c._id === calendar._id ? calendar : c));
+        }
+        return [...prev, calendar];
+      });
+
+      // Если открыт MembersModal по этому календарю — тоже обновляем
+      setMembersCalendar((prev) =>
+        prev && prev._id === calendar._id ? calendar : prev
+      );
+    };
+
+    socket.on("calendar_members_update", handler);
+    return () => socket.off("calendar_members_update", handler);
+  }, [setCalendars, setMembersCalendar]);
+
   // =====================================================================
   // CREATE / EDIT CALENDAR
   // =====================================================================
@@ -100,7 +127,6 @@ export default function CalendarManager({
     const url = editingCalendar
       ? `${BASE_URL}/api/calendars/${editingCalendar._id}`
       : `${BASE_URL}/api/calendars`;
-
 
     const res = await fetch(url, {
       method: editingCalendar ? "PUT" : "POST",
@@ -134,10 +160,10 @@ export default function CalendarManager({
 
     if (!window.confirm("Видалити календар?")) return;
 
-    const res = await fetch(
-      `${BASE_URL}/api/calendars/${calendar._id}`,
-      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
-    );
+    const res = await fetch(`${BASE_URL}/api/calendars/${calendar._id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     const data = await res.json();
     if (data.error) return alert(data.error);
@@ -155,10 +181,10 @@ export default function CalendarManager({
     if (!isOwner(calendar))
       return alert("Лише власник може приховати календар");
 
-    const res = await fetch(
-      `${BASE_URL}/api/calendars/${calendar._id}/hide`,
-      { method: "PUT", headers: { Authorization: `Bearer ${token}` } }
-    );
+    const res = await fetch(`${BASE_URL}/api/calendars/${calendar._id}/hide`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     const data = await res.json();
     if (data.error) return alert(data.error);
@@ -168,10 +194,10 @@ export default function CalendarManager({
   };
 
   const showCalendarBack = async (calendar) => {
-    const res = await fetch(
-      `${BASE_URL}/api/calendars/${calendar._id}/show`,
-      { method: "PUT", headers: { Authorization: `Bearer ${token}` } }
-    );
+    const res = await fetch(`${BASE_URL}/api/calendars/${calendar._id}/show`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     const data = await res.json();
     if (data.error) return alert(data.error);
@@ -253,9 +279,7 @@ export default function CalendarManager({
     if (data.error) return alert(data.error);
 
     setCalendars((prev) =>
-      prev.map((c) =>
-        c._id === data.calendar._id ? data.calendar : c
-      )
+      prev.map((c) => (c._id === data.calendar._id ? data.calendar : c))
     );
 
     setMembersCalendar(data.calendar);
@@ -283,9 +307,7 @@ export default function CalendarManager({
     if (data.error) return alert(data.error);
 
     setCalendars((prev) =>
-      prev.map((c) =>
-        c._id === data.calendar._id ? data.calendar : c
-      )
+      prev.map((c) => (c._id === data.calendar._id ? data.calendar : c))
     );
 
     if (isSelf) closeMembersModal();
@@ -318,9 +340,7 @@ export default function CalendarManager({
             <input
               placeholder="Назва"
               value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
               style={input(theme)}
             />
@@ -328,9 +348,7 @@ export default function CalendarManager({
             <input
               type="color"
               value={form.color}
-              onChange={(e) =>
-                setForm({ ...form, color: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
               style={{
                 width: 50,
                 height: 40,
@@ -417,55 +435,51 @@ export default function CalendarManager({
 
                   {/* Кнопки управления */}
                   {isMainCalendar(c) ? null : (
-  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {/* ==== HOLIDAY CALENDAR ==== */}
+                      {isHolidayCalendar(c) ? (
+                        <>
+                          {ownerHere && (
+                            <button
+                              style={hideBtn(theme)}
+                              onClick={() => hideCalendar(c)}
+                            >
+                              🙈
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {ownerHere && (
+                            <>
+                              <button
+                                style={smallBtn(theme)}
+                                onClick={() => openModalForEdit(c)}
+                              >
+                                ✏
+                              </button>
 
-    {/* ==== HOLIDAY CALENDAR ==== */}
-    {isHolidayCalendar(c) ? (
-      <>
-        {/* Только владелец может скрыть holiday calendar */}
-        {ownerHere && (
-          <button
-            style={hideBtn(theme)}
-            onClick={() => hideCalendar(c)}
-          >
-            🙈
-          </button>
-        )}
-      </>
-    ) : (
-      <>
-        {/* ==== Обычные календари ==== */}
-        {ownerHere && (
-          <>
-            <button
-              style={smallBtn(theme)}
-              onClick={() => openModalForEdit(c)}
-            >
-              ✏
-            </button>
+                              <button
+                                style={hideBtn(theme)}
+                                onClick={() => hideCalendar(c)}
+                              >
+                                🙈
+                              </button>
+                            </>
+                          )}
 
-            <button
-              style={hideBtn(theme)}
-              onClick={() => hideCalendar(c)}
-            >
-              🙈
-            </button>
-          </>
-        )}
-
-        {participantHere && (
-          <button
-            style={membersBtn(theme)}
-            onClick={() => openMembersModal(c)}
-          >
-            👥
-          </button>
-        )}
-      </>
-    )}
-  </div>
-)}
-
+                          {participantHere && (
+                            <button
+                              style={membersBtn(theme)}
+                              onClick={() => openMembersModal(c)}
+                            >
+                              👥
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -587,9 +601,7 @@ export default function CalendarManager({
             {/* NO MEMBERS */}
             {!membersCalendar.editors?.length &&
               !membersCalendar.members?.length && (
-                <p style={{ fontSize: 14 }}>
-                  Додаткових учасників немає
-                </p>
+                <p style={{ fontSize: 14 }}>Додаткових учасників немає</p>
               )}
 
             {/* === EDITORS === */}
@@ -715,10 +727,7 @@ export default function CalendarManager({
             })}
 
             <div style={{ marginTop: 12 }}>
-              <button
-                style={cancelBtn(theme)}
-                onClick={closeMembersModal}
-              >
+              <button style={cancelBtn(theme)} onClick={closeMembersModal}>
                 Закрити
               </button>
             </div>

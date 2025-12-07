@@ -1,10 +1,19 @@
-// src/components/calendar/EventPreview.jsx
+// ==============================
+// EventPreview.jsx — FIXED TIMEZONE + UI FINAL
+// ==============================
 
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
-import { BASE_URL } from "../../config";
+import { BASE_URL } from "../config";
+import { useLocation } from "react-router-dom";
+
+// 🔥 FIX: правильное отображение UTC → local (ни секунды не прыгает)
+function toLocalView(dateString) {
+  if (!dateString) return new Date();
+  return new Date(dateString); // browser converts correctly into local timezone
+}
 
 export default function EventPreview({
   event,
@@ -18,11 +27,11 @@ export default function EventPreview({
   setInviteEmail,
   inviteLoading,
   canManage,
-  currentUserId,
-  currentUserEmail,
 }) {
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
+  const location = useLocation();
+  const cardRef = useRef(null);
 
   if (!event) return null;
 
@@ -30,284 +39,337 @@ export default function EventPreview({
   const isGuest = Boolean(event.invitedFrom);
   const canGuestLeave = isGuest && !canManage;
 
+  // ==============================
+  // FIXED DATE CONVERSION
+  // ==============================
+  const rawDate = event.start || event.date;
+  const localDate = toLocalView(rawDate);
+
+  // ==============================
+  // CLOSE ON OUTSIDE CLICK
+  // ==============================
+  useEffect(() => {
+    function handleClick(e) {
+      if (cardRef.current && !cardRef.current.contains(e.target)) {
+        onClose();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  // ==============================
+  // CLOSE ON ROUTE CHANGE
+  // ==============================
+  useEffect(() => {
+    onClose();
+  }, [location.key]);
+
+  // ==============================
+  // CLOSE ON CALENDAR EVENT
+  // ==============================
+  useEffect(() => {
+    const handler = () => onClose();
+    window.addEventListener("calendar_changed", handler);
+    return () => window.removeEventListener("calendar_changed", handler);
+  }, [onClose]);
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        right: 20,
-        bottom: 20,
-        zIndex: 1100,
-      }}
-    >
+    <>
+      {/* BACKDROP */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1099,
+          background: "transparent",
+        }}
+      />
+
+      {/* CARD */}
       <div
         style={{
-          minWidth: 300,
-          maxWidth: 380,
-          borderRadius: 18,
-          padding: 18,
-          background:
-            theme.name === "glass"
-              ? "rgba(15,23,42,0.95)"
-              : theme.cardBg,
-          color: theme.text,
-          boxShadow: theme.cardShadow,
-          border: theme.cardBorder,
-          backdropFilter: `blur(${theme.blur})`,
+          position: "fixed",
+          right: 20,
+          bottom: 20,
+          zIndex: 1100,
         }}
       >
-        {/* HEADER */}
         <div
+          ref={cardRef}
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 8,
+            minWidth: 300,
+            maxWidth: 380,
+            borderRadius: 18,
+            padding: 18,
+            background:
+              theme.name === "glass"
+                ? "rgba(15,23,42,0.95)"
+                : theme.cardBg,
+            color: theme.text,
+            boxShadow: theme.cardShadow,
+            border: theme.cardBorder,
+            backdropFilter: `blur(${theme.blur})`,
           }}
         >
-          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-            {event.title}
-          </h4>
-
-          <button
-            onClick={onClose}
+          {/* HEADER */}
+          <div
             style={{
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              color: theme.textMuted,
-              fontSize: 16,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
             }}
           >
-            ✖
-          </button>
-        </div>
+            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+              {event.title}
+            </h4>
 
-        {/* DATE */}
-        <Row icon="📅" theme={theme}>
-          {format(
-            event.start ? new Date(event.start) : new Date(),
-            "dd.MM.yyyy HH:mm"
-          )}
-        </Row>
+            <button
+              onClick={onClose}
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: theme.textMuted,
+                fontSize: 16,
+              }}
+            >
+              ✖
+            </button>
+          </div>
 
-        {/* CATEGORY */}
-        <Row icon="📂" theme={theme}>
-          {event.category}
-        </Row>
-
-        {/* DESCRIPTION */}
-        {event.description && (
-          <Row icon="📝" theme={theme}>
-            {event.description}
+          {/* DATE FIXED */}
+          <Row icon="📅" theme={theme}>
+            {format(localDate, "dd.MM.yyyy HH:mm")}
           </Row>
-        )}
 
-        {/* INVITED LIST */}
-        {!isHoliday &&
-          (event.invitedUsers?.length > 0 ||
-            event.invitedEmails?.length > 0) && (
-            <div style={{ marginTop: 10 }}>
-              <Row icon="👥" theme={theme}>
-                {t("preview.invited")}
-              </Row>
+          {/* CATEGORY */}
+          <Row icon="📂" theme={theme}>
+            {event.category}
+          </Row>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                  marginTop: 4,
-                }}
-              >
-                {/* USERS */}
-                {event.invitedUsers?.map((u, idx) => {
-                  const name = u.fullName || u.name || u.email || "User";
-                  const initials = name
-                    .trim()
-                    .split(" ")
-                    .map((p) => p[0]?.toUpperCase())
-                    .slice(0, 2)
-                    .join("");
+          {/* DESCRIPTION */}
+          {event.description && (
+            <Row icon="📝" theme={theme}>
+              {event.description}
+            </Row>
+          )}
 
-                  return (
-                    <div key={u._id || idx} style={invitedChipStyle(theme)}>
-                      {/* AVATAR */}
-                      <div
-                        style={{
-                          ...avatarStyle(theme),
-                          overflow: "hidden",
-                        }}
-                      >
-                        {u.avatar ? (
-                          <img
-                            src={`${BASE_URL}${u.avatar}`}
-                            alt="avatar"
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          initials
+          {/* INVITED USERS */}
+          {!isHoliday &&
+            (event.invitedUsers?.length > 0 ||
+              event.invitedEmails?.length > 0) && (
+              <div style={{ marginTop: 10 }}>
+                <Row icon="👥" theme={theme}>
+                  {t("preview.invited")}
+                </Row>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    marginTop: 4,
+                  }}
+                >
+                  {event.invitedUsers?.map((u) => {
+                    const displayName =
+                      u.username ||
+                      u.fullName ||
+                      u.email?.split("@")[0] ||
+                      "User";
+
+                    const initials = displayName.charAt(0).toUpperCase();
+
+                    return (
+                      <div key={u._id} style={invitedChipStyle(theme)}>
+                        {/* AVATAR */}
+                        <div style={{ ...avatarStyle(theme), overflow: "hidden" }}>
+                          {u.avatar ? (
+                            <img
+                              src={`${BASE_URL}${u.avatar}`}
+                              alt="avatar"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+
+                        {/* NAME */}
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>
+                            {displayName}
+                          </div>
+
+                          {u.email && (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: theme.textMuted,
+                              }}
+                            >
+                              {u.email}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* REMOVE */}
+                        {canManage && (
+                          <button
+                            onClick={() => onRemoveInviteUser(u._id, "user")}
+                            style={removeBtnStyle(theme)}
+                          >
+                            ❌
+                          </button>
                         )}
                       </div>
+                    );
+                  })}
+
+                  {/* EMAIL INVITES */}
+                  {event.invitedEmails?.map((mail, idx) => (
+                    <div key={idx} style={invitedChipStyle(theme)}>
+                      <div style={{ ...avatarStyle(theme) }}>@</div>
 
                       <div style={{ display: "flex", flexDirection: "column" }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>
-                          {name}
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{mail}</div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: theme.textMuted,
+                          }}
+                        >
+                          (email)
                         </div>
-                        {u.email && (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: theme.textMuted,
-                            }}
-                          >
-                            {u.email}
-                          </div>
-                        )}
                       </div>
 
-                      {/* REMOVE BUTTON */}
                       {canManage && (
                         <button
-                          onClick={() => onRemoveInviteUser(u._id, "user")}
+                          onClick={() =>
+                            onRemoveInviteUser(mail, "email")
+                          }
                           style={removeBtnStyle(theme)}
                         >
                           ❌
                         </button>
                       )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              </div>
+            )}
 
-                {/* EMAIL INVITES */}
-                {event.invitedEmails?.map((mail, idx) => (
-                  <div key={idx} style={invitedChipStyle(theme)}>
-                    <div
-                      style={{
-                        ...avatarStyle(theme),
-                        overflow: "hidden",
-                      }}
-                    >
-                      @
-                    </div>
+          {/* INVITE FIELD */}
+          {!isHoliday && !isGuest && canManage && (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 8,
+                borderTop: "1px solid rgba(148,163,184,0.4)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  marginBottom: 4,
+                  color: theme.textMuted,
+                }}
+              >
+                {t("preview.inviteTitle")}
+              </div>
 
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>
-                        {mail}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: theme.textMuted,
-                        }}
-                      >
-                        (email)
-                      </div>
-                    </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="email"
+                  placeholder={t("preview.invitePlaceholder")}
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: "6px 8px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.7)",
+                    background: theme.inputBg,
+                    color: theme.text,
+                    fontSize: 13,
+                  }}
+                />
 
-                    {canManage && (
-                      <button
-                        onClick={() => onRemoveInviteUser(mail, "email")}
-                        style={removeBtnStyle(theme)}
-                      >
-                        ❌
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <button
+                  onClick={onInvite}
+                  disabled={inviteLoading}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    border: "none",
+                    background: theme.primary,
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    opacity: inviteLoading ? 0.7 : 1,
+                  }}
+                >
+                  {inviteLoading ? "..." : t("preview.inviteBtn")}
+                </button>
               </div>
             </div>
           )}
 
-        {/* INVITE FIELD */}
-        {!isHoliday && !isGuest && canManage && (
+          {/* ACTION BUTTONS */}
           <div
             style={{
-              marginTop: 12,
-              paddingTop: 8,
-              borderTop: "1px solid rgba(148,163,184,0.4)",
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: 14,
+              gap: 8,
             }}
           >
-            <div
-              style={{
-                fontSize: 13,
-                marginBottom: 4,
-                color: theme.textMuted,
-              }}
-            >
-              {t("preview.inviteTitle")}
-            </div>
+            {!isHoliday && !isGuest && canManage && (
+              <>
+                <button
+                  onClick={onEdit}
+                  style={{
+                    flex: 1,
+                    borderRadius: 999,
+                    border: "none",
+                    padding: "8px 12px",
+                    background: theme.primarySoft,
+                    color: theme.text,
+                    fontWeight: 600,
+                  }}
+                >
+                  {t("preview.edit")}
+                </button>
 
-            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-              <input
-                type="email"
-                placeholder={t("preview.invitePlaceholder")}
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: "6px 8px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.7)",
-                  background: theme.inputBg,
-                  color: theme.text,
-                  fontSize: 13,
-                }}
-              />
+                <button
+                  onClick={onDelete}
+                  style={{
+                    flex: 1,
+                    borderRadius: 999,
+                    border: "none",
+                    padding: "8px 12px",
+                    background: theme.danger,
+                    color: "#fff",
+                    fontWeight: 600,
+                  }}
+                >
+                  {t("preview.delete")}
+                </button>
+              </>
+            )}
 
+            {canGuestLeave && (
               <button
-                onClick={onInvite}
-                disabled={inviteLoading}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "none",
-                  background: theme.primary,
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  opacity: inviteLoading ? 0.7 : 1,
-                }}
-              >
-                {inviteLoading ? "..." : t("preview.inviteBtn")}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ACTION BUTTONS */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: 14,
-            gap: 8,
-          }}
-        >
-          {!isHoliday && !isGuest && canManage && (
-            <>
-              <button
-                onClick={onEdit}
-                style={{
-                  flex: 1,
-                  borderRadius: 999,
-                  border: "none",
-                  padding: "8px 12px",
-                  background: theme.primarySoft,
-                  color: theme.text,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {t("preview.edit")}
-              </button>
-
-              <button
-                onClick={onDelete}
+                onClick={onDeleteSelf}
                 style={{
                   flex: 1,
                   borderRadius: 999,
@@ -316,36 +378,21 @@ export default function EventPreview({
                   background: theme.danger,
                   color: "#fff",
                   fontWeight: 600,
-                  cursor: "pointer",
                 }}
               >
-                {t("preview.delete")}
+                {t("preview.deleteSelf")}
               </button>
-            </>
-          )}
-
-          {canGuestLeave && (
-            <button
-              onClick={onDeleteSelf}
-              style={{
-                flex: 1,
-                borderRadius: 999,
-                border: "none",
-                padding: "8px 12px",
-                background: theme.danger,
-                color: "#fff",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {t("preview.deleteSelf")}
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
+
+// =====================================
+// COMPONENTS
+// =====================================
 
 function Row({ icon, children, theme }) {
   return (
@@ -368,25 +415,25 @@ const invitedChipStyle = (theme) => ({
   display: "flex",
   alignItems: "center",
   gap: 8,
-  padding: "4px 8px",
-  borderRadius: 999,
+  padding: "6px 10px",
+  borderRadius: 12,
   background:
     theme.name === "glass"
       ? "rgba(15,23,42,0.9)"
-      : "rgba(249,250,251,0.98)",
-  border: "1px solid rgba(148,163,184,0.6)",
+      : "rgba(249,250,251,0.96)",
+  border: "1px solid rgba(148,163,184,0.5)",
 });
 
 const avatarStyle = (theme) => ({
-  width: 26,
-  height: 26,
-  borderRadius: 999,
+  width: 32,
+  height: 32,
+  borderRadius: "50%",
   background: theme.primarySoft,
   color: theme.primary,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: 700,
 });
 
@@ -395,6 +442,6 @@ const removeBtnStyle = (theme) => ({
   border: "none",
   background: "transparent",
   cursor: "pointer",
-  fontSize: 16,
+  fontSize: 18,
   color: theme.danger,
 });

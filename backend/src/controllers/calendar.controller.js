@@ -9,19 +9,33 @@ function isSameId(a, b) {
 }
 
 /* ==========================================
-    SOCKET / NOTIFICATION + EMAIL BROADCAST
+    SOCKET BROADCAST
+========================================== */
+function broadcastCalendarUpdate(calendarId, populated) {
+  try {
+    global.io
+      .to(`calendar:${calendarId}`) // <-- правильное имя комнаты
+      .emit("calendar_members_update", { calendar: populated });
+  } catch (e) {
+    console.error("Socket broadcast error:", e);
+  }
+}
+
+
+/* ==========================================
+    EMAIL + SOCKET NOTIFICATION SYSTEM
 ========================================== */
 async function notifyUsersWithEmail(users, payload, actorId) {
   if (!Array.isArray(users)) users = [users];
 
   const ids = [...new Set(users.map((u) => u.toString()))];
 
-  // socket — всем
+  // socket — всем участникам
   ids.forEach((id) => {
     global.sendNotification(id, payload);
   });
 
-  // email — всем, кроме actorId
+  // email — всем кроме инициатора
   const emailTargets = ids.filter(
     (id) => !actorId || id.toString() !== actorId.toString()
   );
@@ -38,14 +52,19 @@ async function notifyUsersWithEmail(users, payload, actorId) {
     dbUsers
       .filter((u) => !!u.email)
       .map((u) =>
-        sendEmail(u.email, subject, payload.message, `<p>${payload.message}</p>`)
+        sendEmail(
+          u.email,
+          subject,
+          payload.message,
+          `<p>${payload.message}</p>`
+        )
       )
   );
 }
 
 /* ================================
     GET CALENDARS
-=============================== */
+================================ */
 export const getCalendars = async (req, res) => {
   try {
     const calendars = await Calendar.find({
@@ -65,7 +84,7 @@ export const getCalendars = async (req, res) => {
 
 /* ================================
     CREATE CALENDAR
-=============================== */
+================================ */
 export const createCalendar = async (req, res) => {
   try {
     const calendar = await Calendar.create({
@@ -95,7 +114,7 @@ export const createCalendar = async (req, res) => {
 
 /* ================================
     UPDATE CALENDAR
-=============================== */
+================================ */
 export const updateCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -104,13 +123,11 @@ export const updateCalendar = async (req, res) => {
     if (!calendar)
       return res.status(404).json({ error: "Календарь не найден" });
 
-    if (!isSameId(calendar.owner, req.user._id)) {
+    if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
         .json({ error: "Только владелец может редактировать" });
-    }
 
-    // Главное и календарь праздников по-своему жёсткие
     if (calendar.isMain) req.body.name = calendar.name;
 
     if (calendar.isHolidayCalendar) {
@@ -126,10 +143,8 @@ export const updateCalendar = async (req, res) => {
       "email fullName name"
     );
 
-    // 🔔 BROADCAST + EMAIL если включено
     if (calendar.notificationsEnabled) {
       const users = [calendar.owner, ...calendar.editors, ...calendar.members];
-
       const payload = {
         type: "calendar_updated",
         calendar: calendar._id,
@@ -148,7 +163,7 @@ export const updateCalendar = async (req, res) => {
 
 /* ================================
     DELETE CALENDAR
-=============================== */
+================================ */
 export const deleteCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -176,7 +191,6 @@ export const deleteCalendar = async (req, res) => {
 
     await calendar.deleteOne();
 
-    // 🔔 Уведомление всем участникам
     if (calendar.notificationsEnabled) {
       const payload = {
         type: "calendar_deleted",
@@ -196,7 +210,7 @@ export const deleteCalendar = async (req, res) => {
 
 /* ================================
     HIDE CALENDAR
-=============================== */
+================================ */
 export const hideCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -230,7 +244,7 @@ export const hideCalendar = async (req, res) => {
 
 /* ================================
     SHOW CALENDAR
-=============================== */
+================================ */
 export const showCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -260,7 +274,7 @@ export const showCalendar = async (req, res) => {
 
 /* ================================
     INVITE USER
-=============================== */
+================================ */
 export const inviteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -299,9 +313,8 @@ export const inviteUser = async (req, res) => {
       "email fullName name"
     );
 
-    // 🔔 email (як і було) + socket/email нотифікація
+    // email приглашение
     if (calendar.notificationsEnabled) {
-      // 1) Пряме email-приглашення
       await sendEmail(
         email,
         "Запрошення до календаря",
@@ -310,7 +323,6 @@ export const inviteUser = async (req, res) => {
          <p>Роль: <b>${role}</b></p>`
       );
 
-      // 2) Системное уведомление (socket + email, но email не владельцу)
       const payload = {
         type: "calendar_invite",
         calendar: calendar._id,
@@ -321,6 +333,9 @@ export const inviteUser = async (req, res) => {
       await notifyUsersWithEmail(user._id, payload, req.user._id);
     }
 
+    // 🔥 realtime обновление
+    broadcastCalendarUpdate(calendar._id, populated);
+
     res.json({ message: "Користувача запрошено", calendar: populated });
   } catch (e) {
     console.error("inviteUser error:", e);
@@ -330,7 +345,7 @@ export const inviteUser = async (req, res) => {
 
 /* ================================
     UPDATE MEMBER ROLE
-=============================== */
+================================ */
 export const updateMemberRole = async (req, res) => {
   try {
     const { id } = req.params;
@@ -363,7 +378,6 @@ export const updateMemberRole = async (req, res) => {
       "email fullName name"
     );
 
-    // 🔔 notify target user (socket + email)
     if (calendar.notificationsEnabled) {
       const payload = {
         type: "role_changed",
@@ -375,6 +389,9 @@ export const updateMemberRole = async (req, res) => {
       await notifyUsersWithEmail(userId, payload, req.user._id);
     }
 
+    // 🔥 realtime обновление
+    broadcastCalendarUpdate(calendar._id, populated);
+
     res.json({ message: "Роль оновлено", calendar: populated });
   } catch (e) {
     res.status(400).json({ error: "Ошибка изменения роли" });
@@ -383,7 +400,7 @@ export const updateMemberRole = async (req, res) => {
 
 /* ================================
     REMOVE MEMBER
-=============================== */
+================================ */
 export const removeCalendarMember = async (req, res) => {
   try {
     const { id } = req.params;
@@ -418,7 +435,6 @@ export const removeCalendarMember = async (req, res) => {
       "email fullName name"
     );
 
-    // 🔔 уведомление удалённому (если его удалили, а не он сам вышел)
     if (calendar.notificationsEnabled && !isSelf) {
       const payload = {
         type: "removed_from_calendar",
@@ -429,6 +445,9 @@ export const removeCalendarMember = async (req, res) => {
 
       await notifyUsersWithEmail(targetUserId, payload, req.user._id);
     }
+
+    // 🔥 realtime update
+    broadcastCalendarUpdate(calendar._id, populated);
 
     return res.json({
       message: isSelf ? "Ви вийшли з календаря" : "Учасника видалено",
@@ -441,7 +460,7 @@ export const removeCalendarMember = async (req, res) => {
 
 /* ================================
     UPDATE NOTIFICATIONS
-=============================== */
+================================ */
 export const updateCalendarNotifications = async (req, res) => {
   try {
     const { id } = req.params;
