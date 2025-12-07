@@ -28,13 +28,26 @@ export default function EventPreview({
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
   const location = useLocation();
+
   const cardRef = useRef(null);
 
-  // ============================
-  // CLOSE ON CLICK OUTSIDE
-  // ============================
+  // ⭐ ГОЛОВНИЙ FIX: флаг, який дозволяє ігнорувати перший клік
+  const justOpenedRef = useRef(false);
+
+  // Коли event змінюється → попередній клік ігнорується
+  useEffect(() => {
+    if (event) justOpenedRef.current = true;
+  }, [event]);
+
+  // Закриття по кліку поза вікном
   useEffect(() => {
     const handleClick = (e) => {
+      // 🔥 Ігноруємо перший клік після відкриття
+      if (justOpenedRef.current) {
+        justOpenedRef.current = false;
+        return;
+      }
+
       if (cardRef.current && !cardRef.current.contains(e.target)) {
         onClose();
       }
@@ -44,30 +57,31 @@ export default function EventPreview({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  // Close on route change
+  // Закрити при зміні маршрута
   useEffect(() => {
     onClose();
   }, [location.key, onClose]);
 
-  // Close on calendar change
+  // Закрити при вимкненні календаря
   useEffect(() => {
     const handler = () => onClose();
     window.addEventListener("calendar_changed", handler);
     return () => window.removeEventListener("calendar_changed", handler);
   }, [onClose]);
 
-  // The actual guard AFTER hooks (correct)
+  // Якщо вікна немає — нічого не рендеримо
   if (!event) return null;
 
   const isHoliday = event.category === "holiday";
   const isGuest = Boolean(event.invitedFrom);
   const canGuestLeave = isGuest && !canManage;
+
   const rawDate = event.start || event.date;
   const localDate = toLocalView(rawDate);
 
   return (
     <>
-      {/* Overlay — WITHOUT onClick */}
+      {/* Прозорий фон (НЕ реагує на onClick) */}
       <div
         style={{
           position: "fixed",
@@ -85,7 +99,7 @@ export default function EventPreview({
           zIndex: 1100,
         }}
       >
-        {/* Prevent closing when clicking inside */}
+        {/* Щоб кліки всередині НЕ закривали */}
         <div
           ref={cardRef}
           onMouseDown={(e) => e.stopPropagation()}
@@ -145,7 +159,7 @@ export default function EventPreview({
             </Row>
           )}
 
-          {/* INVITED LIST */}
+          {/* LISTA ZAPROSOVANYH */}
           {!isHoliday &&
             (event.invitedUsers?.length > 0 ||
               event.invitedEmails?.length > 0) && (
@@ -200,12 +214,7 @@ export default function EventPreview({
                             {displayName}
                           </div>
                           {u.email && (
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: theme.textMuted,
-                              }}
-                            >
+                            <div style={{ fontSize: 12, color: theme.textMuted }}>
                               {u.email}
                             </div>
                           )}
@@ -312,7 +321,7 @@ export default function EventPreview({
             </div>
           )}
 
-          {/* ACTION BUTTONS */}
+          {/* BUTTONS */}
           <div
             style={{
               display: "flex",
@@ -378,7 +387,6 @@ export default function EventPreview({
   );
 }
 
-// small reusable row component
 function Row({ icon, children, theme }) {
   return (
     <div
