@@ -1,5 +1,5 @@
 // =======================================
-// NAVBAR WITH FULL MOBILE VERSION + NOTIFICATIONS RESTORED
+// NAVBAR WITH MOBILE DOCK + NOTIFICATIONS + AVATAR REFRESH
 // =======================================
 
 import React, { useContext, useState, useRef, useEffect } from "react";
@@ -63,14 +63,25 @@ export default function Navbar() {
 
   const isAuthPage = ["/", "/login", "/register"].includes(location.pathname);
 
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem("user")) || null
+  );
   const [mobileMenu, setMobileMenu] = useState(false);
 
-  // LOAD USER
+  // небольшая версия для кеша аватарки
+  const [avatarVersion, setAvatarVersion] = useState(0);
+
+  // LOAD USER + REACT TO avatar_updated / user_updated
   useEffect(() => {
-    const handler = () => setUser(JSON.parse(localStorage.getItem("user")));
+    const handler = () => {
+      const updated = JSON.parse(localStorage.getItem("user"));
+      setUser(updated ? { ...updated } : null);
+      setAvatarVersion((v) => v + 1); // форсим перезагрузку авы
+    };
+
     window.addEventListener("user_updated", handler);
     window.addEventListener("avatar_updated", handler);
+
     return () => {
       window.removeEventListener("user_updated", handler);
       window.removeEventListener("avatar_updated", handler);
@@ -158,7 +169,11 @@ export default function Navbar() {
   // Close popup on click outside
   useEffect(() => {
     function handleClick(e) {
-      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
+      if (
+        notifOpen &&
+        notifRef.current &&
+        !notifRef.current.contains(e.target)
+      ) {
         setNotifOpen(false);
       }
     }
@@ -192,7 +207,9 @@ export default function Navbar() {
           <div style={{ display: "flex", gap: 10 }}>
             <button
               style={miniBtn(theme)}
-              onClick={() => window.dispatchEvent(new CustomEvent("toggle_theme"))}
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("toggle_theme"))
+              }
             >
               🎨
             </button>
@@ -254,7 +271,7 @@ export default function Navbar() {
         </div>
 
         {/* RIGHT */}
-        <div style={styles.row}>
+        <div style={styles.row} className="desktop-right">
           {/* ====================== */}
           {/* NOTIFICATION BELL */}
           {/* ====================== */}
@@ -271,7 +288,6 @@ export default function Navbar() {
               }}
             >
               🔔
-
               {unreadCount > 0 && (
                 <span
                   style={{
@@ -404,6 +420,7 @@ export default function Navbar() {
           <UserMenu
             user={user}
             avatarLetter={avatarLetter}
+            avatarVersion={avatarVersion}
             theme={theme}
             logout={logout}
             navigate={navigate}
@@ -411,7 +428,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE MENU */}
+      {/* MOBILE MENU (старое, если захочешь бургер потом) */}
       <AnimatePresence>
         {mobileMenu && (
           <motion.div
@@ -474,12 +491,121 @@ export default function Navbar() {
         )}
       </AnimatePresence>
 
-      {/* MOBILE STYLE */}
+      {/* ============================
+          MOBILE BOTTOM DOCK (iOS style)
+      ============================ */}
+      <div className="mobile-bottom-nav">
+        <button
+          className="mb-btn"
+          onClick={() => navigate("/calendar")}
+        >
+          <div className="mb-icon">📅</div>
+        </button>
+
+        <button
+          className="mb-btn"
+          onClick={() => navigate("/chat")}
+        >
+          <div className="mb-icon">💬</div>
+        </button>
+
+        <button
+          className="mb-btn"
+          onClick={() => setNotifOpen((o) => !o)}
+          style={{ position: "relative" }}
+        >
+          <div className="mb-icon">🔔</div>
+          {unreadCount > 0 && (
+            <span className="mb-badge">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          className="mb-btn"
+          onClick={() => navigate("/profile")}
+        >
+          <div className="mb-icon">👤</div>
+        </button>
+
+        <button
+          className="mb-btn"
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent("open_settings"))
+          }
+        >
+          <div className="mb-icon">⚙️</div>
+        </button>
+      </div>
+
+      {/* MOBILE STYLE + DOCK STYLE */}
       <style>{`
+        .mobile-bottom-nav {
+          display: none;
+        }
+
         @media (max-width: 768px) {
-          .desktop-nav { display: none !important; }
-          .desktop-right { display: none !important; }
-          .mobile-burger { display: block !important; }
+          .desktop-nav {
+            display: none !important;
+          }
+
+          .desktop-right {
+            display: none !important;
+          }
+
+          .mobile-bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 94%;
+            padding: 10px 12px;
+            border-radius: 24px;
+            background: ${theme.cardBg};
+            border: ${theme.cardBorder};
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            z-index: 5000;
+          }
+
+          .mb-btn {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+
+          .mb-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justifyContent: center;
+            font-size: 24px;
+            background: ${theme.primarySoft};
+            border: 1px solid ${theme.primary};
+            box-shadow: ${theme.cardShadow};
+          }
+
+          .mb-badge {
+            position: absolute;
+            top: 4px;
+            right: 10px;
+            background: red;
+            color: white;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-weight: 700;
+          }
         }
       `}</style>
     </motion.nav>
@@ -489,7 +615,14 @@ export default function Navbar() {
 // =======================================
 // USER MENU COMPONENT
 // =======================================
-function UserMenu({ user, avatarLetter, theme, logout, navigate }) {
+function UserMenu({
+  user,
+  avatarLetter,
+  avatarVersion,
+  theme,
+  logout,
+  navigate,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -525,7 +658,7 @@ function UserMenu({ user, avatarLetter, theme, logout, navigate }) {
         >
           {user?.avatar ? (
             <img
-              src={`${BASE_URL}${user.avatar}`}
+              src={`${BASE_URL}${user.avatar}?v=${avatarVersion}`}
               alt="avatar"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
