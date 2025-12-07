@@ -8,9 +8,7 @@ export default function ChatWindow({
   typingUser,
   chatRef,
   onSend,
-  onlineList,
-  emitTyping,
-  onBack
+  onlineList
 }) {
   const { theme } = useContext(ThemeContext);
   const currentUser = JSON.parse(localStorage.getItem("user"));
@@ -49,39 +47,24 @@ export default function ChatWindow({
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        height: "100%",
         background: theme.pageBg,
+        height: "100%",
       }}
     >
-      {/* HEADER */}
       <div
         style={{
           padding: "16px 20px",
           borderBottom: theme.cardBorder,
           background: theme.cardBg,
           color: theme.text,
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
           display: "flex",
           alignItems: "center",
           gap: 10,
-          flexShrink: 0
         }}
       >
-        {onBack && (
-          <button
-            onClick={onBack}
-            style={{
-              marginRight: 8,
-              fontSize: 20,
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: theme.text,
-            }}
-          >
-            ←
-          </button>
-        )}
-
         👤 {other?.fullName || other?.email}
 
         {isOnline && (
@@ -96,13 +79,12 @@ export default function ChatWindow({
         )}
       </div>
 
-      {/* SCROLLABLE MESSAGES */}
       <div
         ref={chatRef}
         style={{
           flex: 1,
-          overflowY: "auto",
           padding: 20,
+          overflowY: "auto",
           background: theme.pageBg,
         }}
       >
@@ -124,8 +106,7 @@ export default function ChatWindow({
                   ? `1px solid ${theme.primary}`
                   : theme.cardBorder,
                 color: theme.text,
-                maxWidth: "70%",
-                wordWrap: "break-word",
+                maxWidth: "60%",
               }}
             >
               {msg.text}
@@ -148,16 +129,8 @@ export default function ChatWindow({
         )}
       </div>
 
-      {/* FIXED INPUT */}
-      <div
-        style={{
-          padding: "12px 16px",
-          background: theme.cardBg,
-          borderTop: theme.cardBorder,
-          flexShrink: 0,
-        }}
-      >
-        <ChatInput onSend={onSend} emitTyping={emitTyping} />
+      <div style={{ position: "sticky", bottom: 0, zIndex: 20 }}>
+        <ChatInput onSend={onSend} />
       </div>
     </div>
   );

@@ -190,16 +190,24 @@ export default function ChatPage() {
   // =======================
   // RENDER
   // =======================
-  return (
-    <div style={{ minHeight: "100vh", background: theme.pageBg }}>
+ return (
+  <div
+    style={{
+      height: "calc(100vh - 70px)",
+      background: theme.pageBg,
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column"
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        flex: 1,
+        overflow: "hidden",
+      }}
+    >
 
-      {/* CHAT LAYOUT */}
-      <div
-        style={{
-          display: "flex",
-          height: "calc(100vh - 70px)",
-        }}
-      >
         {/* MOBILE MODE — ONLY SIDEBAR */}
         {isMobile && !selectedChat && (
           <Sidebar
