@@ -644,29 +644,46 @@ export default function CalendarPage() {
         )}
 
         {previewEvent && (
-          <EventPreview
-            event={previewEvent}
-            onClose={() => setPreviewEvent(null)}
-            onEdit={() =>
-              (canEditEvents ||
-                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
-              openModal("edit", previewEvent)
-            }
-            onDelete={() =>
-              (canEditEvents ||
-                previewEvent?.creator?.toString() === currentUserId?.toString()) &&
-              handleDeleteEvent(previewEvent._id)
-            }
-            onDeleteSelf={() =>
-              previewEvent && handleDeleteEvent(previewEvent._id)
-            }
-            onInvite={handleInvite}
-            onRemoveInviteUser={handleRemoveInviteUser}
-            inviteEmail={inviteEmail}
-            setInviteEmail={setInviteEmail}
-            inviteLoading={inviteLoading}
-          />
-        )}
+  <EventPreview
+    event={previewEvent}
+    onClose={() => setPreviewEvent(null)}
+
+    // редактирование
+    onEdit={() => {
+      const isCreator =
+        previewEvent?.creator?._id?.toString() === currentUserId?.toString() ||
+        previewEvent?.creator?.toString() === currentUserId?.toString();
+
+      if (canEditEvents || isCreator) openModal("edit", previewEvent);
+    }}
+
+    // удаление
+    onDelete={() => {
+      const isCreator =
+        previewEvent?.creator?._id?.toString() === currentUserId?.toString() ||
+        previewEvent?.creator?.toString() === currentUserId?.toString();
+
+      if (canEditEvents || isCreator)
+        handleDeleteEvent(previewEvent._id);
+    }}
+
+    // гость удаляет ТОЛЬКО СВОЮ копию
+    onDeleteSelf={() => handleDeleteEvent(previewEvent._id)}
+
+    // приглашения
+    onInvite={handleInvite}
+    onRemoveInviteUser={handleRemoveInviteUser}
+    inviteEmail={inviteEmail}
+    setInviteEmail={setInviteEmail}
+    inviteLoading={inviteLoading}
+
+    // 🔥 ОБЯЗАТЕЛЬНО ДОБАВИТЬ:
+    canManage={canEditEvents}
+    currentUserId={currentUserId}
+    currentUserEmail={currentUser?.email}
+  />
+)}
+
       </AnimatePresence>
     </motion.div>
   );
