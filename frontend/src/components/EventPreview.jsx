@@ -28,14 +28,7 @@ export default function EventPreview({
   const location = useLocation();
   const cardRef = useRef(null);
 
-  if (!event) return null;
-
-  const isHoliday = event.category === "holiday";
-  const isGuest = Boolean(event.invitedFrom);
-  const canGuestLeave = isGuest && !canManage;
-  const rawDate = event.start || event.date;
-  const localDate = toLocalView(rawDate);
-
+  // 🟦 Хуки ВСЕГДА ДОЛЖНЫ БЫТЬ ВЫШЕ ЛЮБЫХ return
   useEffect(() => {
     function handleClick(e) {
       if (cardRef.current && !cardRef.current.contains(e.target)) {
@@ -47,18 +40,31 @@ export default function EventPreview({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
+  // закрывать при смене страницы
   useEffect(() => {
     onClose();
-  }, [location.key]);
+  }, [location.key, onClose]);
 
+  // закрывать при обновлении календаря
   useEffect(() => {
     const handler = () => onClose();
     window.addEventListener("calendar_changed", handler);
     return () => window.removeEventListener("calendar_changed", handler);
   }, [onClose]);
 
+  // 🟥 ВАЖНО: теперь return стоит ПОСЛЕ ВСЕХ useEffect
+  if (!event) return null;
+
+  const isHoliday = event.category === "holiday";
+  const isGuest = Boolean(event.invitedFrom);
+  const canGuestLeave = isGuest && !canManage;
+
+  const rawDate = event.start || event.date;
+  const localDate = toLocalView(rawDate);
+
   return (
     <>
+      {/* overlay */}
       <div
         onClick={onClose}
         style={{
@@ -94,6 +100,7 @@ export default function EventPreview({
             backdropFilter: `blur(${theme.blur})`,
           }}
         >
+          {/* header */}
           <div
             style={{
               display: "flex",
@@ -134,6 +141,7 @@ export default function EventPreview({
             </Row>
           )}
 
+          {/* invited users */}
           {!isHoliday &&
             (event.invitedUsers?.length > 0 ||
               event.invitedEmails?.length > 0) && (
@@ -161,7 +169,12 @@ export default function EventPreview({
 
                     return (
                       <div key={u._id} style={invitedChipStyle(theme)}>
-                        <div style={{ ...avatarStyle(theme), overflow: "hidden" }}>
+                        <div
+                          style={{
+                            ...avatarStyle(theme),
+                            overflow: "hidden",
+                          }}
+                        >
                           {u.avatar ? (
                             <img
                               src={`${BASE_URL}${u.avatar}`}
@@ -196,7 +209,9 @@ export default function EventPreview({
 
                         {canManage && (
                           <button
-                            onClick={() => onRemoveInviteUser(u._id, "user")}
+                            onClick={() =>
+                              onRemoveInviteUser(u._id, "user")
+                            }
                             style={removeBtnStyle(theme)}
                           >
                             ❌
@@ -208,16 +223,13 @@ export default function EventPreview({
 
                   {event.invitedEmails?.map((mail, idx) => (
                     <div key={idx} style={invitedChipStyle(theme)}>
-                      <div style={{ ...avatarStyle(theme) }}>@</div>
+                      <div style={avatarStyle(theme)}>@</div>
 
                       <div style={{ display: "flex", flexDirection: "column" }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{mail}</div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: theme.textMuted,
-                          }}
-                        >
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>
+                          {mail}
+                        </div>
+                        <div style={{ fontSize: 12, color: theme.textMuted }}>
                           (email)
                         </div>
                       </div>
@@ -238,6 +250,7 @@ export default function EventPreview({
               </div>
             )}
 
+          {/* invite input */}
           {!isHoliday && !isGuest && canManage && (
             <div
               style={{
@@ -293,6 +306,8 @@ export default function EventPreview({
               </div>
             </div>
           )}
+
+          {/* buttons */}
           <div
             style={{
               display: "flex",
