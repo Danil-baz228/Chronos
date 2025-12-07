@@ -373,37 +373,40 @@ export default function Navbar() {
 
       {/* MOBILE STYLES */}
       <style>{`
-        @media (max-width: 768px) {
-          .desktop-nav {
-            display: none !important;
-          }
-          .mobile-switch {
-            display: block !important;
-          }
+  @media (max-width: 768px) {
+    .desktop-nav {
+      display: none !important;
+    }
 
-          .notif-popup {
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 320px !important;
-            max-width: 92vw !important;
-            max-height: 60vh !important;
-            z-index: 5001 !important;
-          }
+    .mobile-switch {
+      display: block !important;
+    }
 
-          .notif-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0,0,0,0.25);
-            backdrop-filter: blur(2px);
-            z-index: 5000;
-          }
-        }
-      `}</style>
+    /* POPUP – той же рівень висоти, що і на ПК */
+    .notif-popup {
+      position: fixed !important;
+      top: 110% !important;            /* 🟢 ТЕ Ж САМЕ, ЩО НА ПК */
+      left: 50% !important;
+      transform: translateX(-50%) !important; /* центр тільки по X */
+      width: 320px !important;
+      max-width: 92vw !important;
+      max-height: 60vh !important;
+      z-index: 5001 !important;
+    }
+
+    .notif-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(2px);
+      z-index: 5000;
+    }
+  }
+`}</style>
+
     </motion.nav>
   );
 }
