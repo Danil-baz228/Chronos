@@ -4,6 +4,7 @@ import Calendar from "../models/Calendar.js";
 import User from "../models/User.js";
 import { getHolidays } from "../utils/getHolidays.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { io } from "../server.js";   //  <<< 🔥 добавлено
 
 // ======================================================================
 // HELPERS
@@ -22,22 +23,19 @@ async function getMainCalendarId(userId) {
   return cal?._id || null;
 }
 
-// 🔔 helper: рассылаем socket + email (но email не актору)
+// 🔔 helper: socket + email notifications
 async function notifyUsersWithEmail(userIds, payload, actorId) {
   if (!Array.isArray(userIds)) userIds = [userIds];
 
   const ids = [...new Set(userIds.map((u) => u.toString()))];
 
-  // 1) Socket-уведомление — всем
+  // SOCKET to all users
   ids.forEach((id) => {
     global.sendNotification(id, payload);
   });
 
-  // 2) E-mail — всем, кроме того, кто выполняет действие
-  const emailTargets = ids.filter(
-    (id) => !actorId || id.toString() !== actorId.toString()
-  );
-
+  // EMAIL except actor
+  const emailTargets = ids.filter((id) => id.toString() !== actorId?.toString());
   if (!emailTargets.length) return;
 
   const users = await User.find({ _id: { $in: emailTargets } }).select("email");
@@ -51,7 +49,6 @@ async function notifyUsersWithEmail(userIds, payload, actorId) {
       )
   );
 }
-
 
 // ======================================================================
 // GET EVENTS
@@ -90,9 +87,7 @@ export const getEvents = async (req, res) => {
     }).populate("invitedFrom", "_id title");
 
     const ownIds = new Set(calendarEvents.map((ev) => ev._id.toString()));
-    invitedEvents = invitedEvents.filter(
-      (ev) => !ownIds.has(ev._id.toString())
-    );
+    invitedEvents = invitedEvents.filter((ev) => !ownIds.has(ev._id.toString()));
 
     const all = [...calendarEvents, ...invitedEvents];
     const allIds = all.map((e) => e._id);
@@ -111,7 +106,7 @@ export const getEvents = async (req, res) => {
 };
 
 // ======================================================================
-// CREATE EVENT — WITH NOTIFICATIONS + EMAIL
+// CREATE EVENT — REALTIME
 // ======================================================================
 export const createEvent = async (req, res) => {
   try {
@@ -129,9 +124,7 @@ export const createEvent = async (req, res) => {
     const isEditor = userInArray(userId, calendar.editors);
 
     if (!isOwner && !isEditor)
-      return res
-        .status(403)
-        .json({ error: "Немає прав створювати події" });
+      return res.status(403).json({ error: "Немає прав створювати події" });
 
     const event = await Event.create({
       ...req.body,
@@ -140,7 +133,7 @@ export const createEvent = async (req, res) => {
       readOnly: false,
     });
 
-    // 🔔 NOTIFICATIONS (CREATED)
+    // 🔔 NOTIFY USERS
     if (calendar.notificationsEnabled) {
       const users = [
         calendar.owner,
@@ -148,20 +141,25 @@ export const createEvent = async (req, res) => {
         ...calendar.members,
       ];
 
-      const payload = {
-        type: "event_created",
-        calendar: calendar._id,
-        event: event._id,
-        title: event.title,
-        message: `Нова подія "${event.title}" створена в календарі "${calendar.name}"`,
-        meta: {
-          date: event.date,
-          duration: event.duration,
+      await notifyUsersWithEmail(
+        users,
+        {
+          type: "event_created",
+          calendar: calendar._id,
+          event: event._id,
+          title: event.title,
+          message: `Нова подія "${event.title}" створена в календарі "${calendar.name}"`,
+          meta: { date: event.date, duration: event.duration },
         },
-      };
-
-      await notifyUsersWithEmail(users, payload, req.user._id);
+        req.user._id
+      );
     }
+
+    // 🔥 REALTIME BROADCAST
+    io.to(`calendar:${calendar._id}`).emit("calendar_update", {
+      type: "created",
+      event,
+    });
 
     return res.json({ success: true, event });
   } catch (err) {
@@ -171,7 +169,7 @@ export const createEvent = async (req, res) => {
 };
 
 // ======================================================================
-// UPDATE EVENT — WITH NOTIFICATIONS + EMAIL
+// UPDATE EVENT — REALTIME
 // ======================================================================
 export const updateEvent = async (req, res) => {
   try {
@@ -180,14 +178,10 @@ export const updateEvent = async (req, res) => {
       return res.status(404).json({ error: "Подію не знайдено" });
 
     if (event.category === "holiday" || event.readOnly)
-      return res
-        .status(403)
-        .json({ error: "Цю подію не можна редагувати" });
+      return res.status(403).json({ error: "Подію не можна редагувати" });
 
     if (event.invitedFrom)
-      return res
-        .status(403)
-        .json({ error: "Гості не можуть редагувати подію" });
+      return res.status(403).json({ error: "Гості не можуть редагувати" });
 
     const calendar = await Calendar.findById(event.calendar);
     const userId = req.user._id;
@@ -197,12 +191,12 @@ export const updateEvent = async (req, res) => {
     const isEditor = userInArray(userId, calendar.editors);
 
     if (!isCreator && !isOwner && !isEditor)
-      return res.status(403).json({ error: "Немає прав" });
+      return res.status(403).json({ error: "Немає прав редагувати" });
 
     Object.assign(event, req.body);
     await event.save();
 
-    // Синхронизация копий приглашаемых
+    // 🔔 sync invited clones
     await Event.updateMany(
       { invitedFrom: event._id },
       {
@@ -215,7 +209,7 @@ export const updateEvent = async (req, res) => {
       }
     );
 
-    // 🔔 NOTIFICATIONS (UPDATED)
+    // 🔔 NOTIFY USERS
     if (calendar.notificationsEnabled) {
       const users = [
         calendar.owner,
@@ -223,20 +217,25 @@ export const updateEvent = async (req, res) => {
         ...calendar.members,
       ];
 
-      const payload = {
-        type: "event_updated",
-        calendar: calendar._id,
-        event: event._id,
-        title: event.title,
-        message: `Подію "${event.title}" оновлено в календарі "${calendar.name}"`,
-        meta: {
-          date: event.date,
-          duration: event.duration,
+      await notifyUsersWithEmail(
+        users,
+        {
+          type: "event_updated",
+          calendar: calendar._id,
+          event: event._id,
+          title: event.title,
+          message: `Подію "${event.title}" оновлено в календарі "${calendar.name}"`,
+          meta: { date: event.date, duration: event.duration },
         },
-      };
-
-      await notifyUsersWithEmail(users, payload, req.user._id);
+        req.user._id
+      );
     }
+
+    // 🔥 REALTIME BROADCAST
+    io.to(`calendar:${calendar._id}`).emit("calendar_update", {
+      type: "updated",
+      event,
+    });
 
     return res.json({ success: true, event });
   } catch (err) {
@@ -246,7 +245,7 @@ export const updateEvent = async (req, res) => {
 };
 
 // ======================================================================
-// DELETE EVENT — WITH NOTIFICATIONS + EMAIL
+// DELETE EVENT — REALTIME
 // ======================================================================
 export const deleteEvent = async (req, res) => {
   try {
@@ -255,30 +254,25 @@ export const deleteEvent = async (req, res) => {
       return res.status(404).json({ error: "Подію не знайдено" });
 
     if (event.category === "holiday" || event.readOnly)
-      return res
-        .status(403)
-        .json({ error: "Свята не можна видалити" });
+      return res.status(403).json({ error: "Свята не можна видалити" });
 
     const userId = req.user._id;
-
     const calendar = await Calendar.findById(event.calendar);
+
     const isOwner = isSameId(calendar.owner, userId);
     const isCreator = isSameId(event.creator, userId);
 
     if (!isOwner && !isCreator)
-      return res
-        .status(403)
-        .json({ error: "Немає прав видаляти" });
+      return res.status(403).json({ error: "Немає прав видалити" });
 
-    // Save before delete
-    const deletedDate = event.date;
+    const deletedId = event._id;
     const deletedTitle = event.title;
-    const eventId = event._id.toString();
+    const deletedDate = event.date;
 
     await event.deleteOne();
-    await Event.deleteMany({ invitedFrom: eventId });
+    await Event.deleteMany({ invitedFrom: deletedId });
 
-    // 🔔 NOTIFICATIONS (DELETED)
+    // 🔔 notifications
     if (calendar.notificationsEnabled) {
       const users = [
         calendar.owner,
@@ -286,19 +280,25 @@ export const deleteEvent = async (req, res) => {
         ...calendar.members,
       ];
 
-      const payload = {
-        type: "event_deleted",
-        calendar: calendar._id,
-        event: eventId,
-        title: deletedTitle,
-        message: `Подію "${deletedTitle}" видалено з календаря "${calendar.name}"`,
-        meta: {
-          date: deletedDate,
+      await notifyUsersWithEmail(
+        users,
+        {
+          type: "event_deleted",
+          calendar: calendar._id,
+          event: deletedId,
+          title: deletedTitle,
+          message: `Подію "${deletedTitle}" видалено з календаря "${calendar.name}"`,
+          meta: { date: deletedDate },
         },
-      };
-
-      await notifyUsersWithEmail(users, payload, req.user._id);
+        req.user._id
+      );
     }
+
+    // 🔥 REALTIME BROADCAST
+    io.to(`calendar:${calendar._id}`).emit("calendar_update", {
+      type: "deleted",
+      eventId: deletedId,
+    });
 
     return res.json({ success: true });
   } catch (err) {
@@ -306,6 +306,7 @@ export const deleteEvent = async (req, res) => {
     res.status(400).json({ error: "Помилка видалення" });
   }
 };
+
 
 // ======================================================================
 // INVITE USER TO EVENT — WITH NOTIFICATIONS + EMAIL
