@@ -1,11 +1,10 @@
 // src/components/calendar/EventPreview.jsx
 
-import React, { useContext, useEffect, useRef } from "react";
+import React, { useContext, useRef } from "react";
 import { format } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
 import { BASE_URL } from "../config";
-import { useLocation } from "react-router-dom";
 
 function toLocalView(dateString) {
   if (!dateString) return new Date();
@@ -27,49 +26,11 @@ export default function EventPreview({
 }) {
   const { theme } = useContext(ThemeContext);
   const { t } = useTranslation();
-  const location = useLocation();
 
   const cardRef = useRef(null);
 
-  // ⭐ ГОЛОВНИЙ FIX: флаг, який дозволяє ігнорувати перший клік
-  const justOpenedRef = useRef(false);
-
-  // Коли event змінюється → попередній клік ігнорується
-  useEffect(() => {
-    if (event) justOpenedRef.current = true;
-  }, [event]);
-
-  // Закриття по кліку поза вікном
-  useEffect(() => {
-    const handleClick = (e) => {
-      // 🔥 Ігноруємо перший клік після відкриття
-      if (justOpenedRef.current) {
-        justOpenedRef.current = false;
-        return;
-      }
-
-      if (cardRef.current && !cardRef.current.contains(e.target)) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
-
-  // Закрити при зміні маршрута
-  useEffect(() => {
-    onClose();
-  }, [location.key, onClose]);
-
-  // Закрити при вимкненні календаря
-  useEffect(() => {
-    const handler = () => onClose();
-    window.addEventListener("calendar_changed", handler);
-    return () => window.removeEventListener("calendar_changed", handler);
-  }, [onClose]);
-
-  // Якщо вікна немає — нічого не рендеримо
+  // ❗ Ніякого useEffect — ніякого закриття поза модалкою
+  // ❗ Якщо немає event — нічого не рендеримо
   if (!event) return null;
 
   const isHoliday = event.category === "holiday";
@@ -81,16 +42,18 @@ export default function EventPreview({
 
   return (
     <>
-      {/* Прозорий фон (НЕ реагує на onClick) */}
+      {/* Оверлей просто фоном, НІЧОГО НЕ РОБИТЬ */}
       <div
         style={{
           position: "fixed",
           inset: 0,
           zIndex: 1099,
+          pointerEvents: "none", // ← важливе
           background: "transparent",
         }}
       />
 
+      {/* Саме прев’ю — клацання всередині працює */}
       <div
         style={{
           position: "fixed",
@@ -99,10 +62,8 @@ export default function EventPreview({
           zIndex: 1100,
         }}
       >
-        {/* Щоб кліки всередині НЕ закривали */}
         <div
           ref={cardRef}
-          onMouseDown={(e) => e.stopPropagation()}
           style={{
             minWidth: 300,
             maxWidth: 380,
@@ -159,7 +120,7 @@ export default function EventPreview({
             </Row>
           )}
 
-          {/* LISTA ZAPROSOVANYH */}
+          {/* Запрошені */}
           {!isHoliday &&
             (event.invitedUsers?.length > 0 ||
               event.invitedEmails?.length > 0) && (
@@ -176,7 +137,6 @@ export default function EventPreview({
                     marginTop: 4,
                   }}
                 >
-                  {/* USERS */}
                   {event.invitedUsers?.map((u) => {
                     const displayName =
                       u.username ||
@@ -188,12 +148,7 @@ export default function EventPreview({
 
                     return (
                       <div key={u._id} style={invitedChipStyle(theme)}>
-                        <div
-                          style={{
-                            ...avatarStyle(theme),
-                            overflow: "hidden",
-                          }}
-                        >
+                        <div style={{ ...avatarStyle(theme) }}>
                           {u.avatar ? (
                             <img
                               src={`${BASE_URL}${u.avatar}`}
@@ -202,6 +157,7 @@ export default function EventPreview({
                                 width: "100%",
                                 height: "100%",
                                 objectFit: "cover",
+                                borderRadius: "50%",
                               }}
                             />
                           ) : (
@@ -209,12 +165,24 @@ export default function EventPreview({
                           )}
                         </div>
 
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
+                          <div
+                            style={{ fontSize: 13, fontWeight: 600 }}
+                          >
                             {displayName}
                           </div>
                           {u.email && (
-                            <div style={{ fontSize: 12, color: theme.textMuted }}>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: theme.textMuted,
+                              }}
+                            >
                               {u.email}
                             </div>
                           )}
@@ -234,16 +202,27 @@ export default function EventPreview({
                     );
                   })}
 
-                  {/* EMAIL INVITES */}
                   {event.invitedEmails?.map((mail, idx) => (
                     <div key={idx} style={invitedChipStyle(theme)}>
                       <div style={avatarStyle(theme)}>@</div>
 
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <div
+                          style={{ fontSize: 13, fontWeight: 600 }}
+                        >
                           {mail}
                         </div>
-                        <div style={{ fontSize: 12, color: theme.textMuted }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: theme.textMuted,
+                          }}
+                        >
                           (email)
                         </div>
                       </div>
@@ -264,8 +243,8 @@ export default function EventPreview({
               </div>
             )}
 
-          {/* INVITE FIELD */}
-          {!isHoliday && !isGuest && canManage && (
+          {/* Поле інвайтів */}
+          {!isHoliday && canManage && !isGuest && (
             <div
               style={{
                 marginTop: 12,
@@ -315,13 +294,13 @@ export default function EventPreview({
                     opacity: inviteLoading ? 0.7 : 1,
                   }}
                 >
-                  {inviteLoading ? "..." : t("preview.inviteBtn")}
+                  {inviteLoading ? "…" : t("preview.inviteBtn")}
                 </button>
               </div>
             </div>
           )}
 
-          {/* BUTTONS */}
+          {/* Кнопки */}
           <div
             style={{
               display: "flex",
