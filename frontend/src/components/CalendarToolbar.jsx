@@ -187,7 +187,6 @@ export default function CalendarToolbar({
             <option value="arrangement">{t("category.arrangement")}</option>
             <option value="reminder">{t("category.reminder")}</option>
             <option value="task">{t("category.task")}</option>
-            <option value="holiday">{t("category.holiday")}</option>
           </select>
         </div>
 

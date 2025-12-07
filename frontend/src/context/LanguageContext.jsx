@@ -19,7 +19,6 @@ const translations = {
     "category.arrangement": "Зустрічі",
     "category.reminder": "Нагадування",
     "category.task": "Завдання",
-    "category.holiday": "Свята",
 
     "modal.addTitle": "➕ Додати подію",
     "modal.editTitle": "✏️ Редагувати подію",
