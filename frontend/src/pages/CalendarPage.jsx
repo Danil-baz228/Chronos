@@ -125,6 +125,29 @@ export default function CalendarPage() {
     };
   }, [selectedCalendar]);
 
+  // 🔥 Автообновление превью названия календаря
+useEffect(() => {
+  if (!previewEvent) return;
+
+  const cal = calendars.find(
+    c => c._id?.toString() === previewEvent.calendar?.toString()
+  );
+
+  if (cal) {
+    setPreviewEvent(prev => ({ ...prev, calendarObj: cal }));
+  }
+}, [calendars]);
+
+
+  useEffect(() => {
+  const handler = (e) => {
+    setEvents(e.detail);     // 🔥 новий список подій
+  };
+
+  window.addEventListener("events_updated", handler);
+  return () => window.removeEventListener("events_updated", handler);
+}, []);
+
   // ============================================================
   // 🔥 REALTIME: RECEIVE EVENT UPDATES + UPDATE PREVIEW
   // ============================================================

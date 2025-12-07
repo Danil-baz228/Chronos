@@ -107,14 +107,30 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
 
       const data = await res.json();
-      if (!res.ok) return alert(data.error || "Не вдалося змінити регіон");
+      if (!res.ok) return alert(data.error);
 
+      // сохраняем нового юзера
       localStorage.setItem("user", JSON.stringify(data.user));
+
+      // 🔥 Загружаем ВСЕ события заново (на всякий случай)
+      const ev = await fetch(`${BASE_URL}/api/events`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+
+      const events = await ev.json();
+
+      // 🔥 Обновляем глобальные события
+      window.dispatchEvent(new CustomEvent("events_updated", { detail: events }));
+
+      // 🔥 Очищаем кеш праздников → CalendarPage сам загрузит новые
+      window.dispatchEvent(new Event("holidays_reset"));
+
       alert("Регіон свят оновлено!");
     } catch {
       alert("Помилка сервера");
     }
   };
+
 
   return (
     <div
