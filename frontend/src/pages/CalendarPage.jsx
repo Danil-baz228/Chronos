@@ -122,35 +122,46 @@ export default function CalendarPage() {
 
 
   // ============================================================
-  // 🔥 REALTIME: RECEIVE EVENT UPDATES
-  // ============================================================
-  useEffect(() => {
-    function handleRealtimeUpdate(data) {
-      console.log("🔥 REALTIME EVENT:", data);
+// 🔥 REALTIME: RECEIVE EVENT UPDATES + UPDATE PREVIEW
+// ============================================================
+useEffect(() => {
+  function handleRealtimeUpdate(data) {
+    console.log("🔥 REALTIME EVENT:", data);
 
-      if (data.type === "created") {
-        setEvents((prev) => [...prev, data.event]);
-      }
-
-      if (data.type === "updated") {
-        setEvents((prev) =>
-          prev.map((ev) => (ev._id === data.event._id ? data.event : ev))
-        );
-      }
-
-      if (data.type === "deleted") {
-        setEvents((prev) => prev.filter((ev) => ev._id !== data.eventId));
-      }
+    // CREATE
+    if (data.type === "created") {
+      setEvents((prev) => [...prev, data.event]);
     }
 
-    socket.on("calendar_update", handleRealtimeUpdate);
+    // UPDATE
+    if (data.type === "updated") {
+      setEvents((prev) =>
+        prev.map((ev) => (ev._id === data.event._id ? data.event : ev))
+      );
 
-    return () => socket.off("calendar_update", handleRealtimeUpdate);
-  }, []);
+      // 🔥 Обновляем превью, если оно открыто
+      setPreviewEvent((prev) =>
+        prev && prev._id === data.event._id ? data.event : prev
+      );
+    }
 
+    // DELETE
+    if (data.type === "deleted") {
+      setEvents((prev) => prev.filter((ev) => ev._id !== data.eventId));
 
+      // 🔥 Закрываем превью, если удалили событие
+      setPreviewEvent((prev) =>
+        prev && prev._id === data.eventId ? null : prev
+      );
+    }
+  }
 
+  socket.on("calendar_update", handleRealtimeUpdate);
 
+  return () => {
+    socket.off("calendar_update", handleRealtimeUpdate);
+  };
+}, []);
 
   // ===========================
   // LOAD CALENDARS + EVENTS
