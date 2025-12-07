@@ -1,5 +1,5 @@
 // =======================================
-// NAVBAR — MOBILE CHAT BUTTON + FIXED NOTIFICATIONS
+// NAVBAR — MOBILE CHAT BUTTON + FIXED NOTIFICATIONS (CENTERED)
 // =======================================
 
 import React, { useContext, useState, useRef, useEffect } from "react";
@@ -66,7 +66,7 @@ export default function Navbar() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")) || null);
   const [avatarVersion, setAvatarVersion] = useState(0);
 
-  // LOAD USER + REFRESH AVATAR
+  // Load user + refresh avatar
   useEffect(() => {
     const handler = () => {
       const updated = JSON.parse(localStorage.getItem("user"));
@@ -96,6 +96,7 @@ export default function Navbar() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // LOAD notifications
   useEffect(() => {
     if (!user) return;
 
@@ -129,21 +130,6 @@ export default function Navbar() {
     return () => socket.off("notification", handler);
   }, [user]);
 
-  // CLICK OUTSIDE POPUP
-  useEffect(() => {
-    function handler(e) {
-      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
-        setNotifOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("touchstart", handler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("touchstart", handler);
-    };
-  }, [notifOpen]);
-
   const markAsRead = async (id) => {
     await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
       method: "POST",
@@ -172,7 +158,9 @@ export default function Navbar() {
 
   const active = (path) => location.pathname.startsWith(path);
 
+  // =======================================
   // AUTH NAVBAR
+  // =======================================
   if (isAuthPage) {
     return (
       <motion.nav
@@ -212,11 +200,11 @@ export default function Navbar() {
       }}
     >
       <div style={styles.rowBetween}>
+        {/* LEFT */}
         <ChronusLogo theme={theme} onClick={() => navigate("/calendar")} />
 
-        {/* RIGHT */}
+        {/* RIGHT SIDE */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-
           {/* MOBILE CHAT BUTTON */}
           <button
             className="mobile-chat-btn"
@@ -278,63 +266,90 @@ export default function Navbar() {
             {/* POPUP */}
             <AnimatePresence>
               {notifOpen && (
-                <motion.div
-                  ref={notifRef}
-                  className="notif-popup"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  style={{
-                    position: "absolute",
-                    right: 0,
-                    top: "110%",
-                    width: 320,
-                    maxWidth: "90vw",
-                    maxHeight: 420,
-                    overflowY: "auto",
-                    background: theme.cardBg,
-                    border: theme.cardBorder,
-                    borderRadius: 16,
-                    boxShadow: theme.cardShadow,
-                    padding: 14,
-                    zIndex: 5000,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    <button onClick={markAllAsRead} style={notifBtn(theme)}>✓ Прочитати всі</button>
-                    <button onClick={clearAll} style={deleteBtn()}>🗑 Очистити</button>
-                  </div>
+                <>
+                  {/* BACKDROP (mobile) */}
+                  <motion.div
+                    className="notif-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setNotifOpen(false)}
+                    style={{
+                      position: "fixed",
+                      top: 0,
+                      left: 0,
+                      width: "100vw",
+                      height: "100vh",
+                      background: "rgba(0,0,0,0.25)",
+                      backdropFilter: "blur(2px)",
+                      zIndex: 4999,
+                      display: "none",
+                    }}
+                  />
 
-                  {notifications.length === 0 ? (
-                    <div style={{ padding: 20, opacity: 0.6, textAlign: "center" }}>
-                      Немає повідомлень
+                  {/* POPUP WINDOW */}
+                  <motion.div
+                    ref={notifRef}
+                    className="notif-popup"
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.85 }}
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "110%",
+                      width: 320,
+                      maxHeight: 420,
+                      overflowY: "auto",
+                      background: theme.cardBg,
+                      border: theme.cardBorder,
+                      borderRadius: 16,
+                      boxShadow: theme.cardShadow,
+                      padding: 14,
+                      zIndex: 5000,
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                      <button onClick={markAllAsRead} style={notifBtn(theme)}>
+                        ✓ Прочитати всі
+                      </button>
+                      <button onClick={clearAll} style={deleteBtn()}>
+                        🗑 Очистити
+                      </button>
                     </div>
-                  ) : (
-                    notifications.map((n) => (
-                      <div
-                        key={n._id}
-                        onClick={() => markAsRead(n._id)}
-                        style={{
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          marginBottom: 10,
-                          cursor: "pointer",
-                          background: n.read ? theme.inputBg : theme.primarySoft,
-                          border: n.read ? "1px solid transparent" : `1px solid ${theme.primary}`,
-                        }}
-                      >
-                        <div style={{ fontWeight: 600 }}>{n.message}</div>
-                        <div style={{ opacity: 0.6, fontSize: 12 }}>
-                          {new Date(n.createdAt).toLocaleString()}
-                        </div>
+
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: 20, opacity: 0.6, textAlign: "center" }}>
+                        Немає повідомлень
                       </div>
-                    ))
-                  )}
-                </motion.div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n._id}
+                          onClick={() => markAsRead(n._id)}
+                          style={{
+                            padding: "12px 14px",
+                            borderRadius: 12,
+                            marginBottom: 10,
+                            cursor: "pointer",
+                            background: n.read ? theme.inputBg : theme.primarySoft,
+                            border: n.read ? "1px solid transparent" : `1px solid ${theme.primary}`,
+                          }}
+                        >
+                          <div style={{ fontWeight: 600 }}>{n.message}</div>
+                          <div style={{ opacity: 0.6, fontSize: 12 }}>
+                            {new Date(n.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </motion.div>
+                </>
               )}
             </AnimatePresence>
           </div>
 
+          {/* USER MENU */}
           <UserMenu
             user={user}
             avatarLetter={avatarLetter}
@@ -346,7 +361,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE ADAPTATION FIX */}
+      {/* MOBILE STYLES */}
       <style>{`
         @media (max-width: 768px) {
           .desktop-nav {
@@ -356,12 +371,22 @@ export default function Navbar() {
             display: block !important;
           }
 
-          /* FIX POPUP POSITION — EXACT SAME AS DESKTOP */
+          /* CENTERED MODAL — size unchanged */
           .notif-popup {
-            top: 110% !important;
-            right: 0 !important;
-            left: auto !important;
-            transform: none !important;
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+
+            width: auto !important;
+            height: auto !important;
+            max-height: none !important;
+
+            z-index: 5001 !important;
+          }
+
+          .notif-backdrop {
+            display: block !important;
           }
         }
       `}</style>
@@ -378,6 +403,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
 
   const closeMenu = () => setMenuOpen(false);
 
+  // CLICK OUTSIDE
   useEffect(() => {
     function handleClick(e) {
       if (menuOpen && menuRef.current && !menuRef.current.contains(e.target)) {
