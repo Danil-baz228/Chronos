@@ -247,6 +247,9 @@ export const deleteEvent = async (req, res) => {
 // ======================================================================
 // INVITE USER
 // ======================================================================
+// ======================================================================
+// INVITE USER — WITH REALTIME UPDATE
+// ======================================================================
 export const inviteToEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -257,7 +260,6 @@ export const inviteToEvent = async (req, res) => {
       return res.status(404).json({ error: "Подію не знайдено" });
 
     const calendar = await Calendar.findById(event.calendar);
-
     const userId = req.user._id;
 
     const isCreator = isSameId(event.creator, userId);
@@ -269,12 +271,18 @@ export const inviteToEvent = async (req, res) => {
 
     const user = await User.findOne({ email });
 
+    // ============================================
+    // USER EXISTS → invite to event
+    // ============================================
     if (user) {
-      if (!event.invitedUsers.includes(user._id))
+      if (!event.invitedUsers.includes(user._id)) {
         event.invitedUsers.push(user._id);
+      }
 
+      // get user's MAIN calendar
       const mainId = await getMainCalendarId(user._id);
 
+      // copy event for the invited user
       const exists = await Event.findOne({
         invitedFrom: event._id,
         calendar: mainId,
@@ -294,16 +302,32 @@ export const inviteToEvent = async (req, res) => {
           readOnly: true,
         });
       }
-    } else {
-      if (!event.invitedEmails.includes(email))
+    }
+
+    // ============================================
+    // USER DOES NOT EXIST → email invite
+    // ============================================
+    else {
+      if (!event.invitedEmails.includes(email)) {
         event.invitedEmails.push(email);
+      }
     }
 
     await event.save();
 
+    // Populate updated event
     const updated = await Event.findById(event._id)
       .populate("invitedUsers", "fullName email")
-      .populate("creator", "fullName email");
+      .populate("creator", "fullName email")
+      .populate("calendar", "name isMain isHolidayCalendar");
+
+    // ============================================
+    // 🔥 REALTIME UPDATE TO ALL CALENDAR USERS
+    // ============================================
+    io.to(`calendar:${calendar._id}`).emit("calendar_update", {
+      type: "updated",
+      event: updated,
+    });
 
     return res.json({ success: true, event: updated });
   } catch (err) {
@@ -312,8 +336,12 @@ export const inviteToEvent = async (req, res) => {
   }
 };
 
+
 // ======================================================================
 // REMOVE INVITED
+// ======================================================================
+// ======================================================================
+// REMOVE INVITED USER — WITH REALTIME UPDATE
 // ======================================================================
 export const removeInvite = async (req, res) => {
   try {
@@ -333,28 +361,44 @@ export const removeInvite = async (req, res) => {
     if (!isOwner && !isCreator)
       return res.status(403).json({ error: "Немає прав видаляти" });
 
+    // ============================================
+    // REMOVE USER INVITE
+    // ============================================
     if (type === "user") {
       event.invitedUsers = event.invitedUsers.filter(
         (id) => id.toString() !== value.toString()
       );
 
+      // remove guest copy
       const mainId = await getMainCalendarId(value);
-
       await Event.deleteOne({
         invitedFrom: event._id,
         calendar: mainId,
       });
     }
 
+    // ============================================
+    // REMOVE EMAIL INVITE
+    // ============================================
     if (type === "email") {
       event.invitedEmails = event.invitedEmails.filter((e) => e !== value);
     }
 
     await event.save();
 
+    // populate updated
     const updated = await Event.findById(event._id)
       .populate("invitedUsers", "fullName email")
-      .populate("creator", "fullName email");
+      .populate("creator", "fullName email")
+      .populate("calendar", "name isMain isHolidayCalendar");
+
+    // ============================================
+    // 🔥 REALTIME UPDATE
+    // ============================================
+    io.to(`calendar:${calendar._id}`).emit("calendar_update", {
+      type: "updated",
+      event: updated,
+    });
 
     return res.json({ success: true, event: updated });
   } catch (err) {
@@ -362,6 +406,7 @@ export const removeInvite = async (req, res) => {
     res.status(500).json({ error: "Помилка видалення запрошеного" });
   }
 };
+
 
 // ======================================================================
 // SEARCH

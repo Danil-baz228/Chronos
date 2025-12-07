@@ -2,9 +2,9 @@
 
 import React, { useContext } from "react";
 import { format } from "date-fns";
-
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
+import { BASE_URL } from "../../config";
 
 export default function EventPreview({
   event,
@@ -17,10 +17,7 @@ export default function EventPreview({
   inviteEmail,
   setInviteEmail,
   inviteLoading,
-
-  // 🔥 ВАЖНО: теперь CalendarPage сам передаёт canManage (owner/editor/creator)
   canManage,
-
   currentUserId,
   currentUserEmail,
 }) {
@@ -30,11 +27,7 @@ export default function EventPreview({
   if (!event) return null;
 
   const isHoliday = event.category === "holiday";
-
-  // invitedFrom === копия события → это гость
   const isGuest = Boolean(event.invitedFrom);
-
-  // гостю можно удалить ТОЛЬКО свою копию
   const canGuestLeave = isGuest && !canManage;
 
   return (
@@ -128,7 +121,7 @@ export default function EventPreview({
               >
                 {/* USERS */}
                 {event.invitedUsers?.map((u, idx) => {
-                  const name = u.name || u.fullName || u.email || "User";
+                  const name = u.fullName || u.name || u.email || "User";
                   const initials = name
                     .trim()
                     .split(" ")
@@ -137,24 +130,46 @@ export default function EventPreview({
                     .join("");
 
                   return (
-                    <div
-                      key={u._id || idx}
-                      style={invitedChipStyle(theme)}
-                    >
-                      <div style={avatarStyle(theme)}>{initials}</div>
+                    <div key={u._id || idx} style={invitedChipStyle(theme)}>
+                      {/* AVATAR */}
+                      <div
+                        style={{
+                          ...avatarStyle(theme),
+                          overflow: "hidden",
+                        }}
+                      >
+                        {u.avatar ? (
+                          <img
+                            src={`${BASE_URL}${u.avatar}`}
+                            alt="avatar"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          initials
+                        )}
+                      </div>
 
                       <div style={{ display: "flex", flexDirection: "column" }}>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>
                           {name}
                         </div>
                         {u.email && (
-                          <div style={{ fontSize: 12, color: theme.textMuted }}>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: theme.textMuted,
+                            }}
+                          >
                             {u.email}
                           </div>
                         )}
                       </div>
 
-                      {/* ❌ owner/editor/creator может удалить приглашённого */}
+                      {/* REMOVE BUTTON */}
                       {canManage && (
                         <button
                           onClick={() => onRemoveInviteUser(u._id, "user")}
@@ -170,13 +185,25 @@ export default function EventPreview({
                 {/* EMAIL INVITES */}
                 {event.invitedEmails?.map((mail, idx) => (
                   <div key={idx} style={invitedChipStyle(theme)}>
-                    <div style={avatarStyle(theme)}>@</div>
+                    <div
+                      style={{
+                        ...avatarStyle(theme),
+                        overflow: "hidden",
+                      }}
+                    >
+                      @
+                    </div>
 
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>
                         {mail}
                       </div>
-                      <div style={{ fontSize: 12, color: theme.textMuted }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: theme.textMuted,
+                        }}
+                      >
                         (email)
                       </div>
                     </div>
@@ -195,7 +222,7 @@ export default function EventPreview({
             </div>
           )}
 
-        {/* INVITE FIELD — только owner/editor/creator */}
+        {/* INVITE FIELD */}
         {!isHoliday && !isGuest && canManage && (
           <div
             style={{
@@ -214,13 +241,7 @@ export default function EventPreview({
               {t("preview.inviteTitle")}
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                marginTop: 4,
-              }}
-            >
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
               <input
                 type="email"
                 placeholder={t("preview.invitePlaceholder")}
@@ -267,7 +288,6 @@ export default function EventPreview({
             gap: 8,
           }}
         >
-          {/* owner/editor/creator */}
           {!isHoliday && !isGuest && canManage && (
             <>
               <button
@@ -304,7 +324,6 @@ export default function EventPreview({
             </>
           )}
 
-          {/* Гость может удалить только СВОЮ копию */}
           {canGuestLeave && (
             <button
               onClick={onDeleteSelf}
