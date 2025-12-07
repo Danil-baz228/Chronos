@@ -1,5 +1,5 @@
 // =======================================
-// NAVBAR — FIXED MOBILE NOTIFICATIONS + DOCK
+// NAVBAR — MOBILE CHAT BUTTON + FIXED NOTIFICATIONS
 // =======================================
 
 import React, { useContext, useState, useRef, useEffect } from "react";
@@ -52,7 +52,7 @@ function ChronusLogo({ theme, onClick }) {
 }
 
 // =======================================
-// NAVBAR MAIN COMPONENT
+// NAVBAR COMPONENT
 // =======================================
 export default function Navbar() {
   const { theme } = useContext(ThemeContext);
@@ -66,7 +66,7 @@ export default function Navbar() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")) || null);
   const [avatarVersion, setAvatarVersion] = useState(0);
 
-  // Load user + avatar refresh
+  // LOAD USER + REFRESH AVATAR
   useEffect(() => {
     const handler = () => {
       const updated = JSON.parse(localStorage.getItem("user"));
@@ -87,16 +87,16 @@ export default function Navbar() {
     user?.username || user?.fullName || user?.email?.split("@")[0] || "User";
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  // ==============================
-  // NOTIFICATIONS (FIXED MOBILE)
-  // ==============================
+  // ===================================
+  // NOTIFICATIONS
+  // ===================================
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Load notifications
+  // LOAD NOTIFICATIONS
   useEffect(() => {
     if (!user) return;
 
@@ -115,9 +115,10 @@ export default function Navbar() {
     load();
   }, [user]);
 
-  // Socket events
+  // SOCKET LISTENER
   useEffect(() => {
     if (!user) return;
+
     socket.emit("user_online", user._id);
 
     const handler = (notif) => {
@@ -125,8 +126,24 @@ export default function Navbar() {
     };
 
     socket.on("notification", handler);
+
     return () => socket.off("notification", handler);
   }, [user]);
+
+  // CLICK OUTSIDE
+  useEffect(() => {
+    function handler(e) {
+      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [notifOpen]);
 
   const markAsRead = async (id) => {
     await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
@@ -154,26 +171,11 @@ export default function Navbar() {
     setNotifications([]);
   };
 
-  // CLICK OUTSIDE CLOSE (WORKS ON MOBILE)
-  useEffect(() => {
-    function handler(e) {
-      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
-        setNotifOpen(false);
-      }
-    }
-    document.addEventListener("touchstart", handler);
-    document.addEventListener("mousedown", handler);
-    return () => {
-      document.removeEventListener("touchstart", handler);
-      document.removeEventListener("mousedown", handler);
-    };
-  }, [notifOpen]);
-
   const active = (path) => location.pathname.startsWith(path);
 
-  // ==================================================================
-  // AUTH PAGE NAVBAR
-  // ==================================================================
+  // =======================================
+  // AUTH PAGES NAVBAR
+  // =======================================
   if (isAuthPage) {
     return (
       <motion.nav
@@ -195,277 +197,175 @@ export default function Navbar() {
     );
   }
 
-  // ==================================================================
-  // MAIN NAVBAR
-  // ==================================================================
+  // =======================================
+  // MAIN NAVBAR (DESKTOP + MOBILE)
+  // =======================================
   return (
-    <>
-      <motion.nav
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 3000,
-          backdropFilter: `blur(${theme.blur})`,
-          background: theme.cardBg,
-          borderBottom: theme.cardBorder,
-          boxShadow: theme.cardShadow,
-        }}
-      >
-        <div style={styles.rowBetween}>
-          {/* LEFT */}
-          <div style={styles.row}>
-            <ChronusLogo theme={theme} onClick={() => navigate("/calendar")} />
+    <motion.nav
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 3000,
+        backdropFilter: `blur(${theme.blur})`,
+        background: theme.cardBg,
+        borderBottom: theme.cardBorder,
+        boxShadow: theme.cardShadow,
+      }}
+    >
+      <div style={styles.rowBetween}>
+        {/* LEFT */}
+        <ChronusLogo theme={theme} onClick={() => navigate("/calendar")} />
 
-            {/* DESKTOP NAV */}
-            <div className="desktop-nav" style={styles.desktopNav}>
-              <NavButton theme={theme} active={active("/calendar")} onClick={() => navigate("/calendar")}>
-                📅 Календар
-              </NavButton>
+        {/* RIGHT SIDE (DESKTOP + MOBILE) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          
+          {/* MOBILE CHAT BUTTON */}
+          <button
+            className="mobile-chat-btn"
+            onClick={() => navigate("/chat")}
+            style={{
+              fontSize: 22,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "none",
+            }}
+          >
+            💬
+          </button>
 
-              <NavButton theme={theme} active={active("/chat")} onClick={() => navigate("/chat")}>
-                💬 Чати
-              </NavButton>
-            </div>
+          {/* DESKTOP NAV */}
+          <div className="desktop-nav" style={styles.desktopNav}>
+            <NavButton theme={theme} active={active("/calendar")} onClick={() => navigate("/calendar")}>
+              📅 Календар
+            </NavButton>
+            <NavButton theme={theme} active={active("/chat")} onClick={() => navigate("/chat")}>
+              💬 Чати
+            </NavButton>
           </div>
 
-          {/* RIGHT */}
-          <div style={styles.row} className="desktop-right">
-            {/* NOTIF BELL */}
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setNotifOpen(!notifOpen)}
-                style={{
-                  fontSize: 22,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: theme.text,
-                  position: "relative",
-                }}
-              >
-                🔔
-                {unreadCount > 0 && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: -4,
-                      right: -6,
-                      background: "red",
-                      color: "white",
-                      fontSize: 12,
-                      padding: "1px 6px",
-                      borderRadius: 10,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+          {/* NOTIFICATIONS */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setNotifOpen(!notifOpen)}
+              style={{
+                fontSize: 22,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: theme.text,
+                position: "relative",
+              }}
+            >
+              🔔
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -4,
+                    right: -6,
+                    background: "red",
+                    color: "white",
+                    fontSize: 12,
+                    padding: "1px 6px",
+                    borderRadius: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  {unreadCount}
+                </span>
+              )}
+            </button>
 
-              {/* POPUP */}
-              <AnimatePresence>
-                {notifOpen && (
-                  <motion.div
-                    ref={notifRef}
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: "110%",
-                      width: 320,
-                      maxWidth: "90vw",          // FIX MOBILE
-                      maxHeight: 420,
-                      overflowY: "auto",
-                      background: theme.cardBg,
-                      border: theme.cardBorder,
-                      borderRadius: 16,
-                      boxShadow: theme.cardShadow,
-                      padding: 14,
-                      zIndex: 5000,
-                    }}
-                  >
-                    {/* Buttons */}
-                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                      <button
-                        onClick={markAllAsRead}
-                        style={{
-                          flex: 1,
-                          padding: "6px 10px",
-                          borderRadius: 8,
-                          background: theme.primarySoft,
-                          color: theme.primary,
-                          border: theme.cardBorder,
-                          cursor: "pointer",
-                        }}
-                      >
-                        ✓ Прочитати всі
-                      </button>
+            {/* POPUP */}
+            <AnimatePresence>
+              {notifOpen && (
+                <motion.div
+                  ref={notifRef}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "110%",
+                    width: 320,
+                    maxWidth: "90vw",
+                    maxHeight: 420,
+                    overflowY: "auto",
+                    background: theme.cardBg,
+                    border: theme.cardBorder,
+                    borderRadius: 16,
+                    boxShadow: theme.cardShadow,
+                    padding: 14,
+                    zIndex: 5000,
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <button onClick={markAllAsRead} style={notifBtn(theme)}>
+                      ✓ Прочитати всі
+                    </button>
+                    <button onClick={clearAll} style={deleteBtn()}>
+                      🗑 Очистити
+                    </button>
+                  </div>
 
-                      <button
-                        onClick={clearAll}
-                        style={{
-                          flex: 1,
-                          padding: "6px 10px",
-                          borderRadius: 8,
-                          background: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          cursor: "pointer",
-                        }}
-                      >
-                        🗑 Очистити
-                      </button>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: 20, opacity: 0.6, textAlign: "center" }}>
+                      Немає повідомлень
                     </div>
-
-                    {/* List */}
-                    {notifications.length === 0 ? (
-                      <div style={{ padding: 20, opacity: 0.6, textAlign: "center" }}>
-                        Немає повідомлень
-                      </div>
-                    ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n._id}
-                          onClick={() => markAsRead(n._id)}
-                          style={{
-                            padding: "12px 14px",
-                            borderRadius: 12,
-                            marginBottom: 10,
-                            cursor: "pointer",
-                            background: n.read ? theme.inputBg : theme.primarySoft,
-                            border: n.read ? "1px solid transparent" : `1px solid ${theme.primary}`,
-                          }}
-                        >
-                          <div style={{ fontWeight: 600 }}>{n.message}</div>
-                          <div style={{ opacity: 0.6, fontSize: 12 }}>
-                            {new Date(n.createdAt).toLocaleString()}
-                          </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <div
+                        key={n._id}
+                        onClick={() => markAsRead(n._id)}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          marginBottom: 10,
+                          cursor: "pointer",
+                          background: n.read ? theme.inputBg : theme.primarySoft,
+                          border: n.read ? "1px solid transparent" : `1px solid ${theme.primary}`,
+                        }}
+                      >
+                        <div style={{ fontWeight: 600 }}>{n.message}</div>
+                        <div style={{ opacity: 0.6, fontSize: 12 }}>
+                          {new Date(n.createdAt).toLocaleString()}
                         </div>
-                      ))
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* USER MENU */}
-            <UserMenu
-              user={user}
-              avatarLetter={avatarLetter}
-              avatarVersion={avatarVersion}
-              theme={theme}
-              logout={logout}
-              navigate={navigate}
-            />
+                      </div>
+                    ))
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
+          {/* USER MENU */}
+          <UserMenu
+            user={user}
+            avatarLetter={avatarLetter}
+            avatarVersion={avatarVersion}
+            theme={theme}
+            logout={logout}
+            navigate={navigate}
+          />
         </div>
-      </motion.nav>
-
-      {/* ===========================
-          MOBILE DOCK
-      =========================== */}
-      <div className="mobile-bottom-nav">
-        <button className="mb-btn" onClick={() => navigate("/calendar")}>
-          <div className="mb-icon">📅</div>
-        </button>
-
-        <button className="mb-btn" onClick={() => navigate("/chat")}>
-          <div className="mb-icon">💬</div>
-        </button>
-
-        <button
-          className="mb-btn"
-          onClick={() => setNotifOpen(!notifOpen)}
-          style={{ position: "relative" }}
-        >
-          <div className="mb-icon">🔔</div>
-
-          {unreadCount > 0 && (
-            <span className="mb-badge">{unreadCount}</span>
-          )}
-        </button>
-
-        <button className="mb-btn" onClick={() => navigate("/profile")}>
-          <div className="mb-icon">👤</div>
-        </button>
-
-        <button
-          className="mb-btn"
-          onClick={() => window.dispatchEvent(new CustomEvent("open_settings"))}
-        >
-          <div className="mb-icon">⚙️</div>
-        </button>
       </div>
 
-      {/* STYLE FIXES */}
+      {/* MOBILE CHAT BUTTON STYLE */}
       <style>{`
-        .mobile-bottom-nav {
-          display: none;
-        }
-
         @media (max-width: 768px) {
-          .desktop-nav { display: none !important; }
-          /* FIX — уведомления теперь не скрываются */
-          .desktop-right { display: flex !important; }
-
-          .mobile-bottom-nav {
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            position: fixed;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 94%;
-            padding: 10px 12px;
-            border-radius: 24px;
-            background: ${theme.cardBg};
-            border: ${theme.cardBorder};
-            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-            z-index: 6000;
+          .desktop-nav {
+            display: none !important;
           }
-
-          .mb-btn {
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-
-          .mb-icon {
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            background: ${theme.primarySoft};
-            border: 1px solid ${theme.primary};
-            box-shadow: ${theme.cardShadow};
-          }
-
-          .mb-badge {
-            position: absolute;
-            top: 2px;
-            right: 4px;
-            background: red;
-            color: white;
-            font-size: 11px;
-            padding: 1px 6px;
-            border-radius: 999px;
-            font-weight: 700;
+          .mobile-chat-btn {
+            display: block !important;
           }
         }
       `}</style>
-    </>
+    </motion.nav>
   );
 }
 
@@ -520,6 +420,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
         {user?.username}
       </button>
 
+      {/* MENU */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -542,9 +443,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
             <MenuItem label="Профіль" onClick={() => navigate("/profile")} />
             <MenuItem
               label="Налаштування"
-              onClick={() =>
-                window.dispatchEvent(new CustomEvent("open_settings"))
-              }
+              onClick={() => window.dispatchEvent(new CustomEvent("open_settings"))}
             />
             <MenuItem label="Вийти" danger onClick={logout} />
           </motion.div>
@@ -578,9 +477,7 @@ function NavButton({ theme, active, onClick, children }) {
     <motion.button
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      animate={{
-        backgroundColor: active ? theme.primarySoft : "transparent",
-      }}
+      animate={{ backgroundColor: active ? theme.primarySoft : "transparent" }}
       style={{
         padding: "8px 16px",
         borderRadius: 999,
@@ -595,11 +492,30 @@ function NavButton({ theme, active, onClick, children }) {
   );
 }
 
+const notifBtn = (theme) => ({
+  flex: 1,
+  padding: "6px 10px",
+  borderRadius: 8,
+  background: theme.primarySoft,
+  color: theme.primary,
+  border: theme.cardBorder,
+  cursor: "pointer",
+});
+
+const deleteBtn = () => ({
+  flex: 1,
+  padding: "6px 10px",
+  borderRadius: 8,
+  background: "#ef4444",
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+});
+
 // =======================================
-// INLINE STYLES
+// STYLES
 // =======================================
 const styles = {
-  row: { display: "flex", alignItems: "center", gap: 16 },
   rowBetween: {
     maxWidth: 1200,
     margin: "0 auto",
@@ -610,8 +526,7 @@ const styles = {
   },
   desktopNav: {
     display: "flex",
+    alignItems: "center",
     gap: 10,
-    padding: 4,
-    borderRadius: 999,
   },
 };
