@@ -1,3 +1,5 @@
+// src/components/calendar/EventPreview.jsx
+
 import React, { useContext, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
@@ -28,45 +30,45 @@ export default function EventPreview({
   const location = useLocation();
   const cardRef = useRef(null);
 
-  // 🟦 Хуки ВСЕГДА ДОЛЖНЫ БЫТЬ ВЫШЕ ЛЮБЫХ return
+  // ============================
+  // CLOSE ON CLICK OUTSIDE
+  // ============================
   useEffect(() => {
-    function handleClick(e) {
+    const handleClick = (e) => {
       if (cardRef.current && !cardRef.current.contains(e.target)) {
         onClose();
       }
-    }
+    };
 
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  // закрывать при смене страницы
+  // Close on route change
   useEffect(() => {
     onClose();
   }, [location.key, onClose]);
 
-  // закрывать при обновлении календаря
+  // Close on calendar change
   useEffect(() => {
     const handler = () => onClose();
     window.addEventListener("calendar_changed", handler);
     return () => window.removeEventListener("calendar_changed", handler);
   }, [onClose]);
 
-  // 🟥 ВАЖНО: теперь return стоит ПОСЛЕ ВСЕХ useEffect
+  // The actual guard AFTER hooks (correct)
   if (!event) return null;
 
   const isHoliday = event.category === "holiday";
   const isGuest = Boolean(event.invitedFrom);
   const canGuestLeave = isGuest && !canManage;
-
   const rawDate = event.start || event.date;
   const localDate = toLocalView(rawDate);
 
   return (
     <>
-      {/* overlay */}
+      {/* Overlay — WITHOUT onClick */}
       <div
-        onClick={onClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -83,8 +85,10 @@ export default function EventPreview({
           zIndex: 1100,
         }}
       >
+        {/* Prevent closing when clicking inside */}
         <div
           ref={cardRef}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{
             minWidth: 300,
             maxWidth: 380,
@@ -100,7 +104,7 @@ export default function EventPreview({
             backdropFilter: `blur(${theme.blur})`,
           }}
         >
-          {/* header */}
+          {/* HEADER */}
           <div
             style={{
               display: "flex",
@@ -141,7 +145,7 @@ export default function EventPreview({
             </Row>
           )}
 
-          {/* invited users */}
+          {/* INVITED LIST */}
           {!isHoliday &&
             (event.invitedUsers?.length > 0 ||
               event.invitedEmails?.length > 0) && (
@@ -158,6 +162,7 @@ export default function EventPreview({
                     marginTop: 4,
                   }}
                 >
+                  {/* USERS */}
                   {event.invitedUsers?.map((u) => {
                     const displayName =
                       u.username ||
@@ -194,7 +199,6 @@ export default function EventPreview({
                           <div style={{ fontSize: 13, fontWeight: 600 }}>
                             {displayName}
                           </div>
-
                           {u.email && (
                             <div
                               style={{
@@ -221,6 +225,7 @@ export default function EventPreview({
                     );
                   })}
 
+                  {/* EMAIL INVITES */}
                   {event.invitedEmails?.map((mail, idx) => (
                     <div key={idx} style={invitedChipStyle(theme)}>
                       <div style={avatarStyle(theme)}>@</div>
@@ -250,7 +255,7 @@ export default function EventPreview({
               </div>
             )}
 
-          {/* invite input */}
+          {/* INVITE FIELD */}
           {!isHoliday && !isGuest && canManage && (
             <div
               style={{
@@ -307,7 +312,7 @@ export default function EventPreview({
             </div>
           )}
 
-          {/* buttons */}
+          {/* ACTION BUTTONS */}
           <div
             style={{
               display: "flex",
@@ -373,6 +378,7 @@ export default function EventPreview({
   );
 }
 
+// small reusable row component
 function Row({ icon, children, theme }) {
   return (
     <div
