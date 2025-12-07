@@ -126,7 +126,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 2000,
+        zIndex: 9999999,
         padding: isMobile ? 12 : 0, // MOBILE FIX
       }}
     >
