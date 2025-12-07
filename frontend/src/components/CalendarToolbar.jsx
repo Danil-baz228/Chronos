@@ -1,23 +1,15 @@
-// src/components/CalendarToolbar.jsx
-
 import React, { useContext } from "react";
 import { getISOWeek } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
-import { BASE_URL } from "../config";
-// =========================================
-//  🔥 Форматируем названия праздничных календарей
-// =========================================
+
 function formatHolidayName(name) {
   if (!name) return "";
-
   const lower = name.toLowerCase();
-
   if (!lower.includes("holiday")) return name;
 
   const regionMatch = name.match(/\((.*?)\)/);
   const region = regionMatch ? regionMatch[1] : "";
-
   return region ? `Holidays (${region})` : "Holidays";
 }
 
@@ -47,9 +39,6 @@ export default function CalendarToolbar({
 
   return (
     <div style={{ marginBottom: 16 }}>
-      {/* ================================================== */}
-      {/*     Заголовок + кнопки справа                     */}
-      {/* ================================================== */}
       <div
         style={{
           display: "flex",
@@ -58,7 +47,6 @@ export default function CalendarToolbar({
           marginBottom: 10,
         }}
       >
-        {/* Левый блок */}
         <div>
           <h2
             style={{
@@ -84,9 +72,7 @@ export default function CalendarToolbar({
           )}
         </div>
 
-        {/* Правый блок */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* 🗂 Manager */}
           <button
             onClick={onOpenManager}
             style={{
@@ -109,7 +95,6 @@ export default function CalendarToolbar({
             <span>Управління календарями</span>
           </button>
 
-          {/* ➕ Новая подія */}
           {canCreateEvents && (
             <button
               onClick={onNewEventClick}
@@ -135,9 +120,6 @@ export default function CalendarToolbar({
         </div>
       </div>
 
-      {/* ================================================== */}
-      {/*                     ФИЛЬТРЫ                       */}
-      {/* ================================================== */}
       <div
         style={{
           padding: 12,
@@ -154,9 +136,7 @@ export default function CalendarToolbar({
           justifyContent: "space-between",
         }}
       >
-        {/* ЛЕВЫЕ ФИЛЬТРЫ */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {/* Календарь */}
           <select
             value={selectedCalendar || ""}
             onChange={(e) => setSelectedCalendar(e.target.value)}
@@ -176,7 +156,6 @@ export default function CalendarToolbar({
             ))}
           </select>
 
-          {/* Поиск */}
           <input
             placeholder={`🔍 ${t("toolbar.search")}`}
             value={searchQuery}
@@ -192,7 +171,6 @@ export default function CalendarToolbar({
             }}
           />
 
-          {/* Категория */}
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -213,9 +191,6 @@ export default function CalendarToolbar({
           </select>
         </div>
 
-        {/* ================================================== */}
-        {/*            ПЕРЕКЛЮЧАТЕЛЬ ВИДОВ                    */}
-        {/* ================================================== */}
         <div
           style={{
             display: "flex",
@@ -234,7 +209,7 @@ export default function CalendarToolbar({
             { key: "week", label: "W" },
             { key: "day", label: "D" },
             { key: "agenda", label: "A" },
-            { key: "year", label: "Y" }, // 🔥 добавили YEAR
+            { key: "year", label: "Y" },
           ].map((v) => (
             <button
               key={v.key}

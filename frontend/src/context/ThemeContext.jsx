@@ -1,4 +1,3 @@
-// src/context/ThemeContext.jsx
 import React, { createContext, useState, useMemo, useEffect } from "react";
 
 export const ThemeContext = createContext();
@@ -55,17 +54,14 @@ const THEMES = {
 };
 
 export function ThemeProvider({ children }) {
-  // Load from localStorage or default to glass
   const [themeName, setThemeName] = useState(() => {
     return localStorage.getItem("themeName") || "glass";
   });
 
-  // Save on change
   useEffect(() => {
     localStorage.setItem("themeName", themeName);
   }, [themeName]);
 
-  // Allow Navbar to change theme via CustomEvent
   useEffect(() => {
     const handler = () => {
       setThemeName((prev) => {

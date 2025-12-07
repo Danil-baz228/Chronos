@@ -132,12 +132,10 @@ export function LanguageProvider({ children }) {
     return localStorage.getItem("lang") || "uk";
   });
 
-  // save language
   useEffect(() => {
     localStorage.setItem("lang", lang);
   }, [lang]);
 
-  // toggle via event
   useEffect(() => {
     const handler = () => {
       setLang((prev) => (prev === "uk" ? "en" : "uk"));

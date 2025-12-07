@@ -1,7 +1,3 @@
-// ==============================
-// EventPreview.jsx — FIXED TIMEZONE + UI FINAL
-// ==============================
-
 import React, { useContext, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ThemeContext } from "../context/ThemeContext";
@@ -9,10 +5,9 @@ import { useTranslation } from "../context/LanguageContext";
 import { BASE_URL } from "../config";
 import { useLocation } from "react-router-dom";
 
-// 🔥 FIX: правильное отображение UTC → local (ни секунды не прыгает)
 function toLocalView(dateString) {
   if (!dateString) return new Date();
-  return new Date(dateString); // browser converts correctly into local timezone
+  return new Date(dateString);
 }
 
 export default function EventPreview({
@@ -38,16 +33,9 @@ export default function EventPreview({
   const isHoliday = event.category === "holiday";
   const isGuest = Boolean(event.invitedFrom);
   const canGuestLeave = isGuest && !canManage;
-
-  // ==============================
-  // FIXED DATE CONVERSION
-  // ==============================
   const rawDate = event.start || event.date;
   const localDate = toLocalView(rawDate);
 
-  // ==============================
-  // CLOSE ON OUTSIDE CLICK
-  // ==============================
   useEffect(() => {
     function handleClick(e) {
       if (cardRef.current && !cardRef.current.contains(e.target)) {
@@ -59,16 +47,10 @@ export default function EventPreview({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  // ==============================
-  // CLOSE ON ROUTE CHANGE
-  // ==============================
   useEffect(() => {
     onClose();
   }, [location.key]);
 
-  // ==============================
-  // CLOSE ON CALENDAR EVENT
-  // ==============================
   useEffect(() => {
     const handler = () => onClose();
     window.addEventListener("calendar_changed", handler);
@@ -77,7 +59,6 @@ export default function EventPreview({
 
   return (
     <>
-      {/* BACKDROP */}
       <div
         onClick={onClose}
         style={{
@@ -88,7 +69,6 @@ export default function EventPreview({
         }}
       />
 
-      {/* CARD */}
       <div
         style={{
           position: "fixed",
@@ -114,7 +94,6 @@ export default function EventPreview({
             backdropFilter: `blur(${theme.blur})`,
           }}
         >
-          {/* HEADER */}
           <div
             style={{
               display: "flex",
@@ -141,24 +120,20 @@ export default function EventPreview({
             </button>
           </div>
 
-          {/* DATE FIXED */}
           <Row icon="📅" theme={theme}>
             {format(localDate, "dd.MM.yyyy HH:mm")}
           </Row>
 
-          {/* CATEGORY */}
           <Row icon="📂" theme={theme}>
             {event.category}
           </Row>
 
-          {/* DESCRIPTION */}
           {event.description && (
             <Row icon="📝" theme={theme}>
               {event.description}
             </Row>
           )}
 
-          {/* INVITED USERS */}
           {!isHoliday &&
             (event.invitedUsers?.length > 0 ||
               event.invitedEmails?.length > 0) && (
@@ -186,7 +161,6 @@ export default function EventPreview({
 
                     return (
                       <div key={u._id} style={invitedChipStyle(theme)}>
-                        {/* AVATAR */}
                         <div style={{ ...avatarStyle(theme), overflow: "hidden" }}>
                           {u.avatar ? (
                             <img
@@ -203,7 +177,6 @@ export default function EventPreview({
                           )}
                         </div>
 
-                        {/* NAME */}
                         <div style={{ display: "flex", flexDirection: "column" }}>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>
                             {displayName}
@@ -221,7 +194,6 @@ export default function EventPreview({
                           )}
                         </div>
 
-                        {/* REMOVE */}
                         {canManage && (
                           <button
                             onClick={() => onRemoveInviteUser(u._id, "user")}
@@ -234,7 +206,6 @@ export default function EventPreview({
                     );
                   })}
 
-                  {/* EMAIL INVITES */}
                   {event.invitedEmails?.map((mail, idx) => (
                     <div key={idx} style={invitedChipStyle(theme)}>
                       <div style={{ ...avatarStyle(theme) }}>@</div>
@@ -267,7 +238,6 @@ export default function EventPreview({
               </div>
             )}
 
-          {/* INVITE FIELD */}
           {!isHoliday && !isGuest && canManage && (
             <div
               style={{
@@ -323,8 +293,6 @@ export default function EventPreview({
               </div>
             </div>
           )}
-
-          {/* ACTION BUTTONS */}
           <div
             style={{
               display: "flex",
@@ -389,10 +357,6 @@ export default function EventPreview({
     </>
   );
 }
-
-// =====================================
-// COMPONENTS
-// =====================================
 
 function Row({ icon, children, theme }) {
   return (

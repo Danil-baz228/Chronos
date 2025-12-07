@@ -9,6 +9,6 @@ export const markAllAsRead = async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "Не вдалося оновити" });
+    res.status(500).json({ error: "Failed to update" });
   }
 };

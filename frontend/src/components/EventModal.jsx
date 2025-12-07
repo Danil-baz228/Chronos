@@ -1,26 +1,18 @@
-// ===============================
-// EventModal.jsx — FIXED TIMEZONE
-// ===============================
-
 import React, { useContext } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../context/LanguageContext";
 
-// 🔥 Конвертация UTC → local для datetime-local input
 function toLocalInput(dateString) {
   if (!dateString) return "";
-
   const date = new Date(dateString);
-
   const pad = (n) => String(n).padStart(2, "0");
 
-  const y = date.getFullYear();
-  const m = pad(date.getMonth() + 1);
-  const d = pad(date.getDate());
-  const h = pad(date.getHours());
-  const min = pad(date.getMinutes());
-
-  return `${y}-${m}-${d}T${h}:${min}`;
+  return (
+    `${date.getFullYear()}-` +
+    `${pad(date.getMonth() + 1)}-` +
+    `${pad(date.getDate())}T` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
 }
 
 export default function EventModal({
@@ -87,7 +79,6 @@ export default function EventModal({
             gap: 10,
           }}
         >
-          {/* TITLE */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.name")}</span>
             <input
@@ -95,10 +86,7 @@ export default function EventModal({
               value={newEvent.title}
               onChange={(e) =>
                 !readOnly &&
-                setNewEvent((prev) => ({
-                  ...prev,
-                  title: e.target.value,
-                }))
+                setNewEvent((prev) => ({ ...prev, title: e.target.value }))
               }
               disabled={readOnly}
               required
@@ -106,7 +94,6 @@ export default function EventModal({
             />
           </label>
 
-          {/* DATE FIXED */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.datetime")}</span>
             <input
@@ -116,7 +103,7 @@ export default function EventModal({
                 !readOnly &&
                 setNewEvent((prev) => ({
                   ...prev,
-                  date: e.target.value, // сохраняем как есть, backend добавит Z
+                  date: e.target.value,
                 }))
               }
               disabled={readOnly}
@@ -125,7 +112,6 @@ export default function EventModal({
             />
           </label>
 
-          {/* DURATION */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.duration")}</span>
             <input
@@ -144,7 +130,6 @@ export default function EventModal({
             />
           </label>
 
-          {/* CATEGORY */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.category")}</span>
             <select
@@ -165,7 +150,6 @@ export default function EventModal({
             </select>
           </label>
 
-          {/* COLOR */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.color")}</span>
             <input
@@ -188,7 +172,6 @@ export default function EventModal({
             />
           </label>
 
-          {/* DESCRIPTION */}
           <label style={labelStyle(theme)}>
             <span>{t("modal.description")}</span>
             <textarea
@@ -209,7 +192,6 @@ export default function EventModal({
             />
           </label>
 
-          {/* BUTTONS */}
           <div
             style={{
               display: "flex",

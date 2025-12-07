@@ -1,6 +1,5 @@
 import { BASE_URL } from "../config";
 
-// удаляем слэш на конце
 const API_URL = `${BASE_URL.replace(/\/$/, "")}/api`;
 
 export const register = async (data) => {

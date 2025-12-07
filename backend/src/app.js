@@ -17,20 +17,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// =======================
-//    FIX STATIC UPLOADS
-// =======================
-
-// Перетворюємо import.meta.url → __dirname  
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Тепер Express точно знаходить uploads/
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// =======================
-//         ROUTES
-// =======================
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/calendars", calendarRoutes);

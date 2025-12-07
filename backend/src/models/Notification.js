@@ -10,14 +10,11 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: [
-        // календарь
         "calendar_invite",
         "calendar_updated",
         "calendar_deleted",
         "removed_from_calendar",
         "role_changed",
-
-        // события
         "event_created",
         "event_updated",
         "event_deleted",
@@ -27,12 +24,12 @@ const notificationSchema = new mongoose.Schema(
       required: true,
     },
 
-    title: String,        // например название события
+    title: String,
     message: { type: String, required: true },
 
     read: { type: Boolean, default: false },
 
-    meta: {}              // любые доп. данные
+    meta: {}
   },
   { timestamps: true }
 );

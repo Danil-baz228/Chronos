@@ -90,10 +90,8 @@ export default function Login() {
   );
 }
 
-// ---------- MOBILE DETECTOR ----------
 const isMobile = window.innerWidth < 480;
 
-// ---------- STYLES ----------
 const wrapper = (theme) => ({
   minHeight: "100vh",
   display: "flex",

@@ -1,7 +1,3 @@
-// =======================
-//   CalendarPage.jsx — BEAUTIFUL ANIMATED + YEAR VIEW (Realtime)
-// =======================
-
 import React, {
   useEffect,
   useState,
@@ -21,36 +17,27 @@ import YearView from "./YearView";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeContext } from "../context/ThemeContext";
 
-import { socket } from "../socket"; // <<< 🔥 добавлено
+import { socket } from "../socket"; 
 
-// ===============================
-// НОРМАЛЬНАЯ работа с datetime-local
-// Без всяких UTC-сдвигов: берём строку как есть
-// ===============================
 function toLocalInputValue(value) {
   if (!value) return "";
 
-  // Если уже строка — просто приводим к формату "YYYY-MM-DDTHH:MM"
   if (typeof value === "string") {
     const s = value.trim();
 
-    // Если формат "2025-12-07 14:00" → заменим пробел на 'T'
     const withT = s.includes("T") ? s : s.replace(" ", "T");
 
-    // Обрезаем до первых 16 символов: "YYYY-MM-DDTHH:MM"
     return withT.slice(0, 16);
   }
 
-  // На всякий случай fallback, если пришёл Date/number
   const d = new Date(value);
-  const iso = d.toISOString(); // "YYYY-MM-DDTHH:MM:SS.sssZ"
+  const iso = d.toISOString();
   return iso.slice(0, 16);
 }
 
 export default function CalendarPage() {
   const { theme } = useContext(ThemeContext);
 
-  // SETTINGS MODAL
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     const handler = () => setSettingsOpen(true);
@@ -58,10 +45,8 @@ export default function CalendarPage() {
     return () => window.removeEventListener("open_settings", handler);
   }, []);
 
-  // CALENDAR MANAGER
   const [managerOpen, setManagerOpen] = useState(false);
 
-  // DATA
   const [calendars, setCalendars] = useState([]);
   const [selectedCalendar, setSelectedCalendar] = useState(null);
   const [events, setEvents] = useState([]);
@@ -69,27 +54,21 @@ export default function CalendarPage() {
   const [holidayCache, setHolidayCache] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // EVENT MODAL
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [editEvent, setEditEvent] = useState(null);
 
-  // PREVIEW
   const [previewEvent, setPreviewEvent] = useState(null);
 
-  // FILTERS
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  // DATE / VIEW
   const [currentView, setCurrentView] = useState("month");
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // INVITES
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  // USER
   const token = localStorage.getItem("token");
   const currentUser = JSON.parse(localStorage.getItem("user"));
   const currentUserId = currentUser?._id;
@@ -110,9 +89,6 @@ export default function CalendarPage() {
     color: "",
   });
 
-  // ============================================================
-  // 🔥 REALTIME: JOIN / LEAVE CALENDAR ROOMS
-  // ============================================================
   useEffect(() => {
     if (!selectedCalendar) return;
 
@@ -125,7 +101,6 @@ export default function CalendarPage() {
     };
   }, [selectedCalendar]);
 
-  // 🔥 Автообновление превью названия календаря
 useEffect(() => {
   if (!previewEvent) return;
 
@@ -141,42 +116,34 @@ useEffect(() => {
 
   useEffect(() => {
   const handler = (e) => {
-    setEvents(e.detail);     // 🔥 новий список подій
+    setEvents(e.detail);   
   };
 
   window.addEventListener("events_updated", handler);
   return () => window.removeEventListener("events_updated", handler);
 }, []);
 
-  // ============================================================
-  // 🔥 REALTIME: RECEIVE EVENT UPDATES + UPDATE PREVIEW
-  // ============================================================
   useEffect(() => {
     function handleRealtimeUpdate(data) {
       console.log("🔥 REALTIME EVENT:", data);
 
-      // CREATE
+
       if (data.type === "created") {
         setEvents((prev) => [...prev, data.event]);
       }
-
-      // UPDATE
       if (data.type === "updated") {
         setEvents((prev) =>
           prev.map((ev) => (ev._id === data.event._id ? data.event : ev))
         );
 
-        // 🔥 Обновляем превью, если оно открыто
         setPreviewEvent((prev) =>
           prev && prev._id === data.event._id ? data.event : prev
         );
       }
 
-      // DELETE
       if (data.type === "deleted") {
         setEvents((prev) => prev.filter((ev) => ev._id !== data.eventId));
 
-        // 🔥 Закрываем превью, если удалили событие
         setPreviewEvent((prev) =>
           prev && prev._id === data.eventId ? null : prev
         );
@@ -190,9 +157,6 @@ useEffect(() => {
     };
   }, []);
 
-  // ===========================
-  // LOAD CALENDARS + EVENTS
-  // ===========================
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -227,10 +191,6 @@ useEffect(() => {
 
     fetchAll();
   }, [token]);
-
-  // ===========================
-  // USER ROLE
-  // ===========================
   const [userRole, setUserRole] = useState("member");
 
   useEffect(() => {
@@ -269,10 +229,6 @@ useEffect(() => {
 
   const canCreateEvents = userRole === "owner" || userRole === "editor";
   const canEditEvents = canCreateEvents;
-
-  // ===========================
-  // LOAD HOLIDAYS
-  // ===========================
   useEffect(() => {
     if (!token) return;
 
@@ -320,15 +276,8 @@ useEffect(() => {
     return () => (cancelled = true);
   }, [currentDate, token, holidayCache]);
 
-  // ===========================
-  // EVENTS MERGE
-  // ===========================
   const selectedCalObj = calendars.find((c) => c._id === selectedCalendar);
   const allEvents = selectedCalObj?.isHolidayCalendar ? holidays : events;
-
-  // ===========================
-  // FILTER EVENTS
-  // ===========================
   const filteredEvents = allEvents.filter((e) => {
     if (selectedCalObj?.isHolidayCalendar) {
       return e.category === "holiday";
@@ -346,9 +295,6 @@ useEffect(() => {
     return matchCal && matchSearch && matchCat;
   });
 
-  // ===========================
-  // SAVE EVENT
-  // ===========================
   const handleSaveEvent = async (e) => {
     e.preventDefault();
     if (!canCreateEvents) return alert("У вас немає прав");
@@ -379,9 +325,6 @@ useEffect(() => {
     closeModal();
   };
 
-  // ===========================
-  // DELETE EVENT
-  // ===========================
   const handleDeleteEvent = async (id) => {
     if (!canEditEvents) return alert("У вас немає прав");
     if (!window.confirm("Видалити подію?")) return;
@@ -396,10 +339,6 @@ useEffect(() => {
 
     closeModal();
   };
-
-  // ===========================
-  // OPEN MODAL
-  // ===========================
   const openModal = useCallback(
     (mode = "add", event = null) => {
       if (mode === "add" && !canCreateEvents) return;
@@ -458,16 +397,10 @@ useEffect(() => {
     setEditEvent(null);
   };
 
-  // ===========================
-  // EVENT PREVIEW
-  // ===========================
   const handleEventClick = useCallback((event) => {
     setPreviewEvent(event);
   }, []);
 
-  // ===========================
-  // INVITE USER
-  // ===========================
   const handleInvite = async () => {
     if (!previewEvent || !inviteEmail.trim()) return;
 
@@ -496,10 +429,6 @@ useEffect(() => {
 
     setInviteLoading(false);
   };
-
-  // ===========================
-  // REMOVE INVITED USER
-  // ===========================
   const handleRemoveInviteUser = async (value, type) => {
     if (!previewEvent) return;
 
@@ -523,9 +452,6 @@ useEffect(() => {
     }
   };
 
-  // ===========================
-  // LOADING SCREEN
-  // ===========================
   if (loading) {
     return (
       <motion.div
@@ -551,9 +477,6 @@ useEffect(() => {
     );
   }
 
-  // ===========================
-  // RENDER
-  // ===========================
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -646,7 +569,6 @@ useEffect(() => {
           <EventPreview
             event={previewEvent}
             onClose={() => setPreviewEvent(null)}
-            // редактирование
             onEdit={() => {
               const isCreator =
                 previewEvent?.creator?._id?.toString() ===
@@ -655,7 +577,6 @@ useEffect(() => {
 
               if (canEditEvents || isCreator) openModal("edit", previewEvent);
             }}
-            // удаление
             onDelete={() => {
               const isCreator =
                 previewEvent?.creator?._id?.toString() ===
@@ -665,15 +586,12 @@ useEffect(() => {
               if (canEditEvents || isCreator)
                 handleDeleteEvent(previewEvent._id);
             }}
-            // гость удаляет ТОЛЬКО СВОЮ копию
             onDeleteSelf={() => handleDeleteEvent(previewEvent._id)}
-            // приглашения
             onInvite={handleInvite}
             onRemoveInviteUser={handleRemoveInviteUser}
             inviteEmail={inviteEmail}
             setInviteEmail={setInviteEmail}
             inviteLoading={inviteLoading}
-            // управление правами
             canManage={canEditEvents}
             currentUserId={currentUserId}
             currentUserEmail={currentUser?.email}

@@ -23,9 +23,6 @@ export default function ChatPage() {
   const token = localStorage.getItem("token");
   const currentUser = JSON.parse(localStorage.getItem("user"));
 
-  // ===========================
-  // TRACK SCREEN RESIZE
-  // ===========================
   useEffect(() => {
     const resizeHandler = () => {
       setIsMobile(window.innerWidth < 768);
@@ -34,9 +31,6 @@ export default function ChatPage() {
     return () => window.removeEventListener("resize", resizeHandler);
   }, []);
 
-  // ===========================
-  // LOAD CHATS
-  // ===========================
   const loadChats = async () => {
     const res = await fetch(`${BASE_URL}/api/chat`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -50,33 +44,26 @@ export default function ChatPage() {
     loadChats();
   }, []);
 
-  // announce online
   useEffect(() => {
     if (currentUser) socket.emit("user_online", currentUser._id);
   }, []);
 
-  // LISTEN ONLINE LIST
   useEffect(() => {
     socket.on("online_users", setOnlineList);
     return () => socket.off("online_users");
   }, []);
 
-  // SEARCH USERS
   const searchUsers = async (query) => {
     if (!query.trim()) return setUsers([]);
 
-    const res = await fetch(
-      `${BASE_URL}/api/users/search?query=${query}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    const res = await fetch(`${BASE_URL}/api/users/search?query=${query}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     const data = await res.json();
     setUsers(data);
   };
 
-  // =======================
-  // START CHAT
-  // =======================
   const startChatWithUser = async (user) => {
     const res = await fetch(`${BASE_URL}/api/chat/create`, {
       method: "POST",
@@ -94,9 +81,6 @@ export default function ChatPage() {
     openChat(chat);
   };
 
-  // =======================
-  // OPEN CHAT
-  // =======================
   const openChat = async (chat) => {
     setSelectedChat(chat);
     socket.emit("join_chat", chat._id);
@@ -114,9 +98,6 @@ export default function ChatPage() {
     setMessages(msgs);
   };
 
-  // =======================
-  // SOCKET NEW MESSAGE
-  // =======================
   useEffect(() => {
     if (!selectedChat) return;
 
@@ -132,9 +113,6 @@ export default function ChatPage() {
     return () => socket.off("new_message", handler);
   }, [selectedChat]);
 
-  // =======================
-  // TYPING INDICATOR
-  // =======================
   useEffect(() => {
     if (!selectedChat) return;
 
@@ -157,7 +135,6 @@ export default function ChatPage() {
     };
   }, [selectedChat]);
 
-  // SEND MESSAGE
   const sendMessage = async (text) => {
     await fetch(`${BASE_URL}/api/chat/${selectedChat._id}/messages`, {
       method: "POST",
@@ -169,7 +146,6 @@ export default function ChatPage() {
     });
   };
 
-  // typing emit
   const emitTyping = () => {
     if (!selectedChat) return;
 
@@ -187,28 +163,23 @@ export default function ChatPage() {
     }, 1500);
   };
 
-  // =======================
-  // RENDER
-  // =======================
- return (
-  <div
-    style={{
-      height: "calc(100vh - 70px)",
-      background: theme.pageBg,
-      overflow: "hidden",
-      display: "flex",
-      flexDirection: "column"
-    }}
-  >
+  return (
     <div
       style={{
-        display: "flex",
-        flex: 1,
+        height: "calc(100vh - 70px)",
+        background: theme.pageBg,
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-
-        {/* MOBILE MODE — ONLY SIDEBAR */}
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          overflow: "hidden",
+        }}
+      >
         {isMobile && !selectedChat && (
           <Sidebar
             chats={chats}
@@ -222,7 +193,6 @@ export default function ChatPage() {
           />
         )}
 
-        {/* MOBILE MODE — ONLY CHAT WINDOW */}
         {isMobile && selectedChat && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <ChatWindow
@@ -233,12 +203,11 @@ export default function ChatPage() {
               onSend={sendMessage}
               onlineList={onlineList}
               emitTyping={emitTyping}
-              onBack={() => setSelectedChat(null)} // 👈 кнопка назад
+              onBack={() => setSelectedChat(null)}
             />
           </div>
         )}
 
-        {/* DESKTOP MODE — BOTH SIDEBAR + CHAT WINDOW */}
         {!isMobile && (
           <>
             <Sidebar

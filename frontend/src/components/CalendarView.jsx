@@ -11,7 +11,7 @@ import {
 } from "date-fns";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { ThemeContext } from "../context/ThemeContext";
-import { BASE_URL } from "../config";
+
 const locales = {
   "en-US": require("date-fns/locale/en-US"),
 };
@@ -32,61 +32,51 @@ export default function CalendarView({
   setCurrentView,
   currentDate,
   setCurrentDate,
-  onEventClick,      // 👈 сюда придёт коллбек из CalendarPage
+  onEventClick,
   openModal,
   colorByCategory,
-
-  // права доступа
   canCreateEvents = true,
   canEditEvents = true,
 }) {
   const { theme } = useContext(ThemeContext);
 
-  // ===============================
-  //   МАППИНГ СОБЫТИЙ
-  // ===============================
-const mappedEvents = useMemo(
-  () =>
-    events.map((e) => {
-      const calendar = calendars.find(
-        (c) => c._id?.toString() === (e.calendar?._id || e.calendar)?.toString()
-      );
+  const mappedEvents = useMemo(
+    () =>
+      events.map((e) => {
+        const calendar = calendars.find(
+          (c) =>
+            c._id?.toString() ===
+            (e.calendar?._id || e.calendar)?.toString()
+        );
 
-      const start = e.start
-        ? new Date(e.start)
-        : e.date
-        ? new Date(e.date)
-        : new Date();
+        const start = e.start
+          ? new Date(e.start)
+          : e.date
+          ? new Date(e.date)
+          : new Date();
 
-      const end = e.end
-        ? new Date(e.end)
-        : addMinutes(start, e.duration || 60);
+        const end = e.end
+          ? new Date(e.end)
+          : addMinutes(start, e.duration || 60);
 
-      const isAllDay = e.allDay === true || e.category === "holiday";
+        const isAllDay = e.allDay === true || e.category === "holiday";
 
-      return {
-        ...e,
+        return {
+          ...e,
+          invitedFrom: e.invitedFrom ?? null,
+          start,
+          end,
+          allDay: isAllDay,
+          color:
+            e.color ||
+            calendar?.color ||
+            colorByCategory[e.category] ||
+            theme.primary,
+        };
+      }),
+    [events, calendars, colorByCategory, theme.primary]
+  );
 
-        // 👇 ОБЯЗАТЕЛЬНО! ИНАЧЕ КНОПКИ “Удалить у себя” не будет
-        invitedFrom: e.invitedFrom ?? null,
-
-        start,
-        end,
-        allDay: isAllDay,
-        color:
-          e.color ||
-          calendar?.color ||
-          colorByCategory[e.category] ||
-          theme.primary,
-      };
-    }),
-  [events, calendars, colorByCategory, theme.primary]
-);
-
-
-  // ===============================
-  //        СТИЛИ
-  // ===============================
   const calendarStyles = `
     .rbc-off-range-bg,
     .rbc-today,
@@ -115,9 +105,6 @@ const mappedEvents = useMemo(
     }
   `;
 
-  // ===============================
-  //     РЕНДЕР
-  // ===============================
   return (
     <div
       style={{
@@ -136,7 +123,7 @@ const mappedEvents = useMemo(
 
       <Calendar
         localizer={localizer}
-        selectable={canCreateEvents} // member не может выделять слот
+        selectable={canCreateEvents}
         events={mappedEvents}
         startAccessor="start"
         endAccessor="end"
@@ -147,27 +134,15 @@ const mappedEvents = useMemo(
         views={["month", "week", "day", "agenda"]}
         popup
         style={{ height: 620, padding: 10 }}
-
-        // ============================
-        //     СОЗДАНИЕ СОБЫТИЯ
-        // ============================
         onSelectSlot={
           canCreateEvents
             ? (slot) => openModal("add", { start: slot.start })
             : undefined
         }
-
-        // ============================
-        //     КЛИК ПО СОБЫТИЮ
-        // ============================
         onSelectEvent={(event) => {
           if (!onEventClick) return;
-          onEventClick(event); // 👈 просто отдаём наверх, а там уже показываем превью
+          onEventClick(event);
         }}
-
-        // ============================
-        //     ОТОБРАЖЕНИЕ СОБЫТИЙ
-        // ============================
         eventPropGetter={(event) => ({
           style: {
             background:

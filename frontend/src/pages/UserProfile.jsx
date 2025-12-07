@@ -1,5 +1,3 @@
-// src/pages/UserProfile.jsx
-
 import React, { useContext, useEffect, useState, useRef } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { BASE_URL } from "../config";
@@ -14,9 +12,6 @@ export default function UserProfile() {
   const token = localStorage.getItem("token");
   const fileInputRef = useRef(null);
 
-  // ================================
-  // LOAD USER
-  // ================================
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) {
@@ -26,9 +21,6 @@ export default function UserProfile() {
     setUser(JSON.parse(stored));
   }, []);
 
-  // ================================
-  // LOAD MY EVENTS
-  // ================================
   useEffect(() => {
     if (!token) return;
 
@@ -70,51 +62,38 @@ export default function UserProfile() {
 
   if (!user) return null;
 
-  // =====================================
-  // AVATAR URL
-  // =====================================
   const avatarUrl = user.avatar ? `${BASE_URL}${user.avatar}` : null;
 
-  // =====================================
-  // UPLOAD AVATAR
-  // =====================================
-const handleAvatarChange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append("avatar", file);
+    const formData = new FormData();
+    formData.append("avatar", file);
 
-  try {
-    const res = await fetch(`${BASE_URL}/api/users/avatar`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/api/users/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) return alert(data.error || "Помилка");
+      if (!res.ok) return alert(data.error || "Помилка");
 
-    // 🔥 Оновлюємо дані користувача
-    const updated = { ...user, avatar: data.avatarUrl };
-    setUser(updated);
-    localStorage.setItem("user", JSON.stringify(updated));
+      const updated = { ...user, avatar: data.avatarUrl };
+      setUser(updated);
+      localStorage.setItem("user", JSON.stringify(updated));
 
-    // 🔥 Сповіщаємо Navbar та інші компоненти про зміну
-    window.dispatchEvent(new Event("user_updated"));
-    window.dispatchEvent(new Event("avatar_updated"));
+      window.dispatchEvent(new Event("user_updated"));
+      window.dispatchEvent(new Event("avatar_updated"));
+    } catch (e) {
+      console.error("Avatar upload error:", e);
+      alert("Не вдалося завантажити аватар");
+    }
+  };
 
-  } catch (e) {
-    console.error("Avatar upload error:", e);
-    alert("Не вдалося завантажити аватар");
-  }
-};
-
-
-  // ================================
-  // STYLES
-  // ================================
   const card = {
     background: theme.cardBg,
     border: theme.cardBorder,
@@ -133,14 +112,9 @@ const handleAvatarChange = async (e) => {
     borderRadius: 8,
   };
 
-  // ================================
-  // RENDER
-  // ================================
   return (
     <div style={{ minHeight: "100vh", background: theme.pageBg }}>
       <div style={{ maxWidth: 900, margin: "0 auto", paddingTop: 40 }}>
-        
-        {/* ============================= USER CARD ============================= */}
         <div style={{ ...card, display: "flex", gap: 20 }}>
           <div
             style={{
@@ -182,9 +156,7 @@ const handleAvatarChange = async (e) => {
 
           <div>
             <h2 style={{ margin: 0 }}>👤 Профіль користувача</h2>
-            <p style={{ opacity: 0.8 }}>
-              Управління даними та власними подіями.
-            </p>
+            <p style={{ opacity: 0.8 }}>Управління даними та власними подіями.</p>
 
             <div style={{ marginTop: 12, lineHeight: "1.7" }}>
               <div>
@@ -200,7 +172,6 @@ const handleAvatarChange = async (e) => {
           </div>
         </div>
 
-        {/* ============================= MY EVENTS ONLY ============================= */}
         <div style={{ ...card }}>
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>📅 Мої події</h3>
 

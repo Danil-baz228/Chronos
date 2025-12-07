@@ -19,7 +19,6 @@ router.get("/search", requireAuth, searchUsers);
 router.put("/update", requireAuth, updateProfile);
 router.put("/change-password", requireAuth, updatePassword);
 
-// ⚡️ Новый маршрут
 router.put("/holiday-region", requireAuth, updateHolidayRegion);
 
 export default router;

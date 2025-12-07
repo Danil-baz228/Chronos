@@ -117,7 +117,6 @@ export default function Register() {
   );
 }
 
-// RESPONSIVE HELPERS
 const isMobile = window.innerWidth < 480;
 
 const wrapper = (theme) => ({

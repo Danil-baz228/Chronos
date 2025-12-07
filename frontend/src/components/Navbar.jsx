@@ -1,7 +1,3 @@
-// =======================================
-// NAVBAR — MOBILE SWITCH + FIXED NOTIFICATIONS
-// =======================================
-
 import React, { useContext, useState, useRef, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { AuthContext } from "../context/AuthContext";
@@ -10,9 +6,6 @@ import { socket } from "../socket";
 import { motion, AnimatePresence } from "framer-motion";
 import { BASE_URL } from "../config";
 
-// =======================================
-// LOGO
-// =======================================
 function ChronusLogo({ theme, onClick }) {
   return (
     <motion.div
@@ -30,30 +23,24 @@ function ChronusLogo({ theme, onClick }) {
         cursor: "pointer",
         boxShadow: theme.cardShadow,
         whiteSpace: "nowrap",
-      }}
-    >
+      }}>
       <motion.span
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: [0, 1, 1, 0], x: [-10, 0, 0, 0] }}
-        transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 0.4 }}
-      >
+        transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 0.4 }}>
         C
       </motion.span>
 
       <motion.span
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: [0, 0, 1, 1, 0], x: [30, 15, 0, 0, 0] }}
-        transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 0.4 }}
-      >
+        transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 0.4 }}>
         hronus
       </motion.span>
     </motion.div>
   );
 }
 
-// =======================================
-// NAVBAR COMPONENT
-// =======================================
 export default function Navbar() {
   const { theme } = useContext(ThemeContext);
   const { logout } = useContext(AuthContext);
@@ -63,10 +50,11 @@ export default function Navbar() {
 
   const isAuthPage = ["/", "/login", "/register"].includes(location.pathname);
 
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")) || null);
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem("user")) || null
+  );
   const [avatarVersion, setAvatarVersion] = useState(0);
 
-  // LOAD USER + UPDATE AVATAR
   useEffect(() => {
     const handler = () => {
       const updated = JSON.parse(localStorage.getItem("user"));
@@ -87,16 +75,12 @@ export default function Navbar() {
     user?.username || user?.fullName || user?.email?.split("@")[0] || "User";
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  // ===================================
-  // NOTIFICATIONS
-  // ===================================
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // LOAD NOTIFICATIONS
   useEffect(() => {
     if (!user) return;
 
@@ -113,7 +97,6 @@ export default function Navbar() {
     load();
   }, [user]);
 
-  // SOCKET LISTENER
   useEffect(() => {
     if (!user) return;
 
@@ -128,10 +111,13 @@ export default function Navbar() {
     return () => socket.off("notification", handler);
   }, [user]);
 
-  // CLICK OUTSIDE NOTIFICATIONS
   useEffect(() => {
     function handler(e) {
-      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) {
+      if (
+        notifOpen &&
+        notifRef.current &&
+        !notifRef.current.contains(e.target)
+      ) {
         setNotifOpen(false);
       }
     }
@@ -174,10 +160,6 @@ export default function Navbar() {
   };
 
   const active = (path) => location.pathname.startsWith(path);
-
-  // =======================================
-  // AUTH NAVBAR
-  // =======================================
   if (isAuthPage) {
     return (
       <motion.nav
@@ -190,8 +172,7 @@ export default function Navbar() {
           height: 60,
           zIndex: 100,
           background: "transparent",
-        }}
-      >
+        }}>
         <div style={styles.rowBetween}>
           <ChronusLogo theme={theme} onClick={() => navigate("/login")} />
         </div>
@@ -199,9 +180,6 @@ export default function Navbar() {
     );
   }
 
-  // =======================================
-  // MAIN NAVBAR
-  // =======================================
   return (
     <motion.nav
       initial={{ opacity: 0, y: -10 }}
@@ -214,13 +192,11 @@ export default function Navbar() {
         background: theme.cardBg,
         borderBottom: theme.cardBorder,
         boxShadow: theme.cardShadow,
-      }}
-    >
+      }}>
       <div style={styles.rowBetween}>
         <ChronusLogo theme={theme} onClick={() => navigate("/calendar")} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {/* MOBILE SWITCH */}
           <div className="mobile-switch" style={{ display: "none" }}>
             {location.pathname.startsWith("/calendar") ? (
               <button
@@ -232,8 +208,7 @@ export default function Navbar() {
                   padding: "6px 12px",
                   borderRadius: 10,
                   cursor: "pointer",
-                }}
-              >
+                }}>
                 💬
               </button>
             ) : (
@@ -246,24 +221,27 @@ export default function Navbar() {
                   padding: "6px 12px",
                   borderRadius: 10,
                   cursor: "pointer",
-                }}
-              >
+                }}>
                 📅
               </button>
             )}
           </div>
 
-          {/* DESKTOP MENU */}
           <div className="desktop-nav" style={styles.desktopNav}>
-            <NavButton theme={theme} active={active("/calendar")} onClick={() => navigate("/calendar")}>
+            <NavButton
+              theme={theme}
+              active={active("/calendar")}
+              onClick={() => navigate("/calendar")}>
               📅 Календар
             </NavButton>
-            <NavButton theme={theme} active={active("/chat")} onClick={() => navigate("/chat")}>
+            <NavButton
+              theme={theme}
+              active={active("/chat")}
+              onClick={() => navigate("/chat")}>
               💬 Чати
             </NavButton>
           </div>
 
-          {/* NOTIFICATIONS */}
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setNotifOpen(!notifOpen)}
@@ -274,8 +252,7 @@ export default function Navbar() {
                 cursor: "pointer",
                 color: theme.text,
                 position: "relative",
-              }}
-            >
+              }}>
               🔔
               {unreadCount > 0 && (
                 <span
@@ -289,8 +266,7 @@ export default function Navbar() {
                     padding: "1px 6px",
                     borderRadius: 10,
                     fontWeight: 700,
-                  }}
-                >
+                  }}>
                   {unreadCount}
                 </span>
               )}
@@ -318,8 +294,7 @@ export default function Navbar() {
                     boxShadow: theme.cardShadow,
                     padding: 14,
                     zIndex: 5000,
-                  }}
-                >
+                  }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     <button onClick={markAllAsRead} style={notifBtn(theme)}>
                       ✓ Прочитати всі
@@ -330,7 +305,12 @@ export default function Navbar() {
                   </div>
 
                   {notifications.length === 0 ? (
-                    <div style={{ padding: 20, opacity: 0.6, textAlign: "center" }}>
+                    <div
+                      style={{
+                        padding: 20,
+                        opacity: 0.6,
+                        textAlign: "center",
+                      }}>
                       Немає повідомлень
                     </div>
                   ) : (
@@ -343,10 +323,13 @@ export default function Navbar() {
                           borderRadius: 12,
                           marginBottom: 10,
                           cursor: "pointer",
-                          background: n.read ? theme.inputBg : theme.primarySoft,
-                          border: n.read ? "1px solid transparent" : `1px solid ${theme.primary}`,
-                        }}
-                      >
+                          background: n.read
+                            ? theme.inputBg
+                            : theme.primarySoft,
+                          border: n.read
+                            ? "1px solid transparent"
+                            : `1px solid ${theme.primary}`,
+                        }}>
                         <div style={{ fontWeight: 600 }}>{n.message}</div>
                         <div style={{ opacity: 0.6, fontSize: 12 }}>
                           {new Date(n.createdAt).toLocaleString()}
@@ -359,7 +342,6 @@ export default function Navbar() {
             </AnimatePresence>
           </div>
 
-          {/* USER MENU */}
           <UserMenu
             user={user}
             avatarLetter={avatarLetter}
@@ -371,7 +353,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE STYLES */}
       <style>{`
   @media (max-width: 768px) {
     .desktop-nav {
@@ -382,12 +363,11 @@ export default function Navbar() {
       display: block !important;
     }
 
-    /* POPUP – той же рівень висоти, що і на ПК */
     .notif-popup {
       position: fixed !important;
-      top: 110% !important;            /* 🟢 ТЕ Ж САМЕ, ЩО НА ПК */
+      top: 110% !important;            
       left: 50% !important;
-      transform: translateX(-50%) !important; /* центр тільки по X */
+      transform: translateX(-50%) !important;
       width: 320px !important;
       max-width: 92vw !important;
       max-height: 60vh !important;
@@ -406,15 +386,18 @@ export default function Navbar() {
     }
   }
 `}</style>
-
     </motion.nav>
   );
 }
 
-// =======================================
-// USER MENU
-// =======================================
-function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }) {
+function UserMenu({
+  user,
+  avatarLetter,
+  avatarVersion,
+  theme,
+  logout,
+  navigate,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -451,8 +434,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
           cursor: "pointer",
           color: theme.text,
           fontWeight: 600,
-        }}
-      >
+        }}>
         <div
           style={{
             width: 28,
@@ -465,8 +447,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
             alignItems: "center",
             color: theme.primary,
             fontWeight: 700,
-          }}
-        >
+          }}>
           {user?.avatar ? (
             <img
               src={`${BASE_URL}${user.avatar}?v=${avatarVersion}`}
@@ -498,8 +479,7 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
               boxShadow: theme.cardShadow,
               padding: "10px 0",
               zIndex: 6000,
-            }}
-          >
+            }}>
             <MenuItem
               label="Профіль"
               onClick={() => {
@@ -531,9 +511,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
   );
 }
 
-// =======================================
-// HELPERS
-// =======================================
 function MenuItem({ label, danger, onClick }) {
   return (
     <div
@@ -543,8 +520,7 @@ function MenuItem({ label, danger, onClick }) {
         cursor: "pointer",
         color: danger ? "#ef4444" : "inherit",
         fontWeight: danger ? 700 : 500,
-      }}
-    >
+      }}>
       {label}
     </div>
   );
@@ -563,8 +539,7 @@ function NavButton({ theme, active, onClick, children }) {
         fontWeight: 600,
         border: "none",
         color: theme.text,
-      }}
-    >
+      }}>
       {children}
     </motion.button>
   );
@@ -590,9 +565,6 @@ const deleteBtn = () => ({
   cursor: "pointer",
 });
 
-// =======================================
-// STYLES
-// =======================================
 const styles = {
   rowBetween: {
     maxWidth: 1200,

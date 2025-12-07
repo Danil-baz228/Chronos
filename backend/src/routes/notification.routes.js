@@ -5,9 +5,6 @@ import { requireAuth } from "../middleware/requireAuth.js";
 const router = express.Router();
 router.use(requireAuth);
 
-// ====================================
-// GET — всі уведомлення користувача
-// ====================================
 router.get("/", async (req, res) => {
   try {
     const list = await Notification.find({ user: req.user._id })
@@ -16,13 +13,10 @@ router.get("/", async (req, res) => {
 
     res.json(list);
   } catch (e) {
-    res.status(500).json({ error: "Помилка завантаження уведомлень" });
+    res.status(500).json({ error: "Failed to load notifications" });
   }
 });
 
-// ====================================
-// Позначити ВСІ як прочитані
-// ====================================
 router.post("/read-all", async (req, res) => {
   try {
     await Notification.updateMany(
@@ -32,31 +26,25 @@ router.post("/read-all", async (req, res) => {
 
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: "Помилка" });
+    res.status(500).json({ error: "Failed to mark as read" });
   }
 });
 
-// ====================================
-// Очистити ВСІ сповіщення
-// ====================================
 router.delete("/clear-all", async (req, res) => {
   try {
     await Notification.deleteMany({ user: req.user._id });
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: "Помилка очищення" });
+    res.status(500).json({ error: "Failed to clear notifications" });
   }
 });
 
-// ====================================
-// Позначити ОДНЕ як прочитане
-// ====================================
 router.post("/:id/read", async (req, res) => {
   try {
     await Notification.findByIdAndUpdate(req.params.id, { read: true });
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: "Помилка" });
+    res.status(500).json({ error: "Failed to mark notification" });
   }
 });
 

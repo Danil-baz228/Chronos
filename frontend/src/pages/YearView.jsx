@@ -1,7 +1,3 @@
-// =======================
-//  YearView.jsx — красивый годовой просмотр
-// =======================
-
 import React from "react";
 import { motion } from "framer-motion";
 
@@ -11,7 +7,6 @@ const monthNames = [
   "Вересень", "Жовтень", "Листопад", "Грудень"
 ];
 
-// маленькая функция – создаёт сетку дней месяца
 function getMonthMatrix(year, month) {
   let first = new Date(year, month, 1);
   let last = new Date(year, month + 1, 0);
@@ -19,7 +14,6 @@ function getMonthMatrix(year, month) {
   let matrix = [];
   let row = [];
 
-  // добавляем пустые дни до начала месяца
   for (let i = 0; i < first.getDay(); i++) row.push(null);
 
   for (let day = 1; day <= last.getDate(); day++) {
@@ -30,7 +24,6 @@ function getMonthMatrix(year, month) {
     }
   }
 
-  // добавляем пустые ячейки в конец
   if (row.length) {
     while (row.length < 7) row.push(null);
     matrix.push(row);
@@ -72,7 +65,8 @@ export default function YearView({ year, events, onSelectDate }) {
             <h3 style={{ marginBottom: 8, textAlign: "center" }}>{name}</h3>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", fontSize: 12, opacity: 0.7 }}>
-              <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Нд</span>
+              <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span>
+              <span>Пт</span><span>Сб</span><span>Нд</span>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginTop: 6 }}>
@@ -103,7 +97,6 @@ export default function YearView({ year, events, onSelectDate }) {
                     >
                       {date.getDate()}
 
-                      {/* точка — есть событие */}
                       {dayEvents.length > 0 && (
                         <div
                           style={{

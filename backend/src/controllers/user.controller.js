@@ -4,16 +4,9 @@ import Calendar from "../models/Calendar.js";
 import Event from "../models/Event.js";
 import { createHolidayCalendar } from "../services/calendar.service.js";
 
-// =======================
-// Search Users
-// =======================
-// =======================
-// Search Users
-// =======================
 export const searchUsers = async (req, res) => {
   try {
     const query = req.query.query || "";
-
     if (!query.trim()) return res.json([]);
 
     const users = await User.find({
@@ -29,9 +22,6 @@ export const searchUsers = async (req, res) => {
   }
 };
 
-// =======================
-// Update Profile
-// =======================
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -39,11 +29,11 @@ export const updateProfile = async (req, res) => {
 
     const existsUsername = await User.findOne({ username, _id: { $ne: userId } });
     if (existsUsername)
-      return res.status(400).json({ error: "Цей логін вже зайнятий" });
+      return res.status(400).json({ error: "Username is already taken" });
 
     const existsEmail = await User.findOne({ email, _id: { $ne: userId } });
     if (existsEmail)
-      return res.status(400).json({ error: "Цей email вже зайнятий" });
+      return res.status(400).json({ error: "Email is already taken" });
 
     const updated = await User.findByIdAndUpdate(
       userId,
@@ -53,13 +43,10 @@ export const updateProfile = async (req, res) => {
 
     res.json({ message: "Профіль оновлено", user: updated });
   } catch (e) {
-    res.status(500).json({ error: "Помилка оновлення профілю" });
+    res.status(500).json({ error: "Profile update failed" });
   }
 };
 
-// =======================
-// Change Password
-// =======================
 export const updatePassword = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -67,21 +54,19 @@ export const updatePassword = async (req, res) => {
 
     const user = await User.findById(userId);
     const isMatch = await bcrypt.compare(oldPassword, user.password);
+
     if (!isMatch)
       return res.status(400).json({ error: "Incorrect old password" });
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    res.json({ message: "Password updated" });
+    res.json({ message: "Пароль оновлено" });
   } catch (e) {
-    res.status(500).json({ error: "Password update error" });
+    res.status(500).json({ error: "Password update failed" });
   }
 };
 
-// =======================
-// Update Holiday Region
-// =======================
 export const updateHolidayRegion = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -110,26 +95,23 @@ export const updateHolidayRegion = async (req, res) => {
     const newHolidayCalendar = await createHolidayCalendar(userId, region, year);
 
     res.json({
-      message: "Holiday region updated",
+      message: "Регіон свят оновлено",
       user: updatedUser,
       holidayCalendar: newHolidayCalendar,
     });
 
   } catch (e) {
-    console.error("❌ updateHolidayRegion ERROR:", e);
+    console.error("updateHolidayRegion ERROR:", e);
     res.status(500).json({ error: "Could not update holiday region" });
   }
 };
 
-// =======================
-// Upload Avatar
-// =======================
 export const uploadAvatar = async (req, res) => {
   try {
     const userId = req.user._id;
 
     if (!req.file) {
-      return res.status(400).json({ error: "Файл не завантажено" });
+      return res.status(400).json({ error: "File not uploaded" });
     }
 
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
@@ -148,6 +130,6 @@ export const uploadAvatar = async (req, res) => {
 
   } catch (e) {
     console.error("Avatar upload error:", e);
-    res.status(500).json({ error: "Помилка завантаження аватару" });
+    res.status(500).json({ error: "Avatar upload failed" });
   }
 };

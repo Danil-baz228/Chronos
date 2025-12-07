@@ -2,9 +2,6 @@ import Chat from "../models/Chat.js";
 import Message from "../models/Message.js";
 import { io } from "../server.js";
 
-// ================================
-//  CREATE OR RETURN CHAT
-// ================================
 export const createChat = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -34,9 +31,6 @@ export const createChat = async (req, res) => {
   }
 };
 
-// ================================
-//  GET USER CHATS
-// ================================
 export const getMyChats = async (req, res) => {
   try {
     const chats = await Chat.find({ members: req.user._id })
@@ -51,9 +45,6 @@ export const getMyChats = async (req, res) => {
   }
 };
 
-// ================================
-//  GET ALL MESSAGES IN A CHAT
-// ================================
 export const getMessages = async (req, res) => {
   try {
     const msgs = await Message.find({ chat: req.params.chatId })
@@ -67,9 +58,6 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ================================
-//  SEND MESSAGE + EMIT TO SOCKET.IO
-// ================================
 export const sendMessage = async (req, res) => {
   try {
     const msg = await Message.create({
@@ -82,7 +70,6 @@ export const sendMessage = async (req, res) => {
     const fullMsg = await Message.findById(msg._id)
       .populate("sender", "fullName email");
 
-    // 🔥 Отправляем всем в комнате чата
     io.to(`chat:${req.params.chatId}`).emit("new_message", fullMsg);
 
     return res.json(fullMsg);

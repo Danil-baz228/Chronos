@@ -4,7 +4,6 @@ export default function UserMenu({ user, onLogout }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef();
 
-  // Закрытие по клику вне меню
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -17,7 +16,6 @@ export default function UserMenu({ user, onLogout }) {
 
   return (
     <div style={{ position: "relative" }} ref={menuRef}>
-      {/* Аватарка */}
       <div
         onClick={() => setOpen(!open)}
         style={{
@@ -37,7 +35,6 @@ export default function UserMenu({ user, onLogout }) {
         {user?.fullName?.[0]?.toUpperCase() || "U"}
       </div>
 
-      {/* ВЫПАДАЮЩЕЕ МЕНЮ */}
       {open && (
         <div
           style={{

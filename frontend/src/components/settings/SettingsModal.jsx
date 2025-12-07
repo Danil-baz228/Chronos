@@ -29,9 +29,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   });
 
   const [region, setRegion] = useState(user.holidayRegion || "UA");
-
-  // ⚡ MOBILE CHECK
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // <-----
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
     const handler = (e) => {
@@ -41,7 +39,6 @@ export default function SettingsModal({ isOpen, onClose }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  // ⚡ TRACK WIDTH
   useEffect(() => {
     const resize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", resize);
@@ -50,7 +47,6 @@ export default function SettingsModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // ================= SAVE PROFILE =================
   const saveProfile = async () => {
     try {
       const res = await fetch(`${BASE_URL}/api/users/update`, {
@@ -63,16 +59,15 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
 
       const data = await res.json();
-      if (!res.ok) return alert(data.error || "Помилка оновлення");
+      if (!res.ok) return alert(data.error || "Update error");
 
       localStorage.setItem("user", JSON.stringify(data.user));
       alert("Дані оновлено!");
     } catch {
-      alert("Помилка сервера");
+      alert("Server error");
     }
   };
 
-  // ================= CHANGE PASSWORD =================
   const changePassword = async () => {
     try {
       const res = await fetch(`${BASE_URL}/api/users/change-password`, {
@@ -85,16 +80,15 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
 
       const data = await res.json();
-      if (!res.ok) return alert(data.error || "Не вдалося змінити пароль");
+      if (!res.ok) return alert(data.error || "Failed to change password");
 
       alert("Пароль змінено!");
       setPassForm({ oldPassword: "", newPassword: "" });
     } catch {
-      alert("Помилка сервера");
+      alert("Server error");
     }
   };
 
-  // ================= REGION =================
   const updateRegion = async () => {
     try {
       const res = await fetch(`${BASE_URL}/api/users/holiday-region`, {
@@ -109,28 +103,22 @@ export default function SettingsModal({ isOpen, onClose }) {
       const data = await res.json();
       if (!res.ok) return alert(data.error);
 
-      // сохраняем нового юзера
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // 🔥 Загружаем ВСЕ события заново (на всякий случай)
       const ev = await fetch(`${BASE_URL}/api/events`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
 
       const events = await ev.json();
 
-      // 🔥 Обновляем глобальные события
       window.dispatchEvent(new CustomEvent("events_updated", { detail: events }));
-
-      // 🔥 Очищаем кеш праздников → CalendarPage сам загрузит новые
       window.dispatchEvent(new Event("holidays_reset"));
 
       alert("Регіон свят оновлено!");
     } catch {
-      alert("Помилка сервера");
+      alert("Server error");
     }
   };
-
 
   return (
     <div
@@ -143,39 +131,36 @@ export default function SettingsModal({ isOpen, onClose }) {
         alignItems: "center",
         justifyContent: "center",
         zIndex: 9999999,
-        padding: isMobile ? 12 : 0, // MOBILE FIX
+        padding: isMobile ? 12 : 0,
       }}
     >
       <div
         ref={modalRef}
         style={{
-          width: isMobile ? "100%" : 880,        // MOBILE FIX
-          height: isMobile ? "90vh" : 520,       // MOBILE FIX
-          maxHeight: "90vh",                      // MOBILE FIX
+          width: isMobile ? "100%" : 880,
+          height: isMobile ? "90vh" : 520,
+          maxHeight: "90vh",
           background: theme.cardBg,
           borderRadius: 16,
           border: theme.cardBorder,
           boxShadow: theme.cardShadow,
           display: "flex",
-          flexDirection: isMobile ? "column" : "row", // MOBILE FIX
+          flexDirection: isMobile ? "column" : "row",
           overflow: "hidden",
         }}
       >
-        {/* SIDEBAR */}
         <div
           style={{
-            width: isMobile ? "100%" : 260,        // MOBILE FIX
-            height: isMobile ? "auto" : "100%",    // MOBILE FIX
+            width: isMobile ? "100%" : 260,
             background:
               themeName === "light"
                 ? "rgba(15,23,42,0.85)"
                 : "rgba(15,23,42,0.75)",
-
-            padding: isMobile ? "14px 10px" : "26px 18px", // MOBILE FIX
+            padding: isMobile ? "14px 10px" : "26px 18px",
             display: "flex",
-            flexDirection: isMobile ? "row" : "column",    // MOBILE FIX
+            flexDirection: isMobile ? "row" : "column",
             gap: 10,
-            overflowX: isMobile ? "auto" : "visible",      // MOBILE FIX
+            overflowX: isMobile ? "auto" : "visible",
           }}
         >
           <SidebarItem label="Основне" active={activeTab === "main"} onClick={() => setActiveTab("main")} />
@@ -184,16 +169,14 @@ export default function SettingsModal({ isOpen, onClose }) {
           <SidebarItem label="Інше" active={activeTab === "other"} onClick={() => setActiveTab("other")} />
         </div>
 
-        {/* CONTENT */}
         <div
           style={{
             flex: 1,
-            padding: isMobile ? "18px 14px" : 28,  // MOBILE FIX
+            padding: isMobile ? "18px 14px" : 28,
             color: theme.text,
             overflowY: "auto",
           }}
         >
-          {/* HEADER */}
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <h2 style={{ marginBottom: 16 }}>
               {activeTab === "main" && "Основна інформація"}
@@ -216,7 +199,6 @@ export default function SettingsModal({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* CONTENT TABS */}
           {activeTab === "main" && (
             <>
               {["username", "fullName", "email"].map((field) => (
@@ -252,7 +234,6 @@ export default function SettingsModal({ isOpen, onClose }) {
             </>
           )}
 
-          {/* PASSWORD */}
           {activeTab === "password" && (
             <>
               <input
@@ -291,7 +272,6 @@ export default function SettingsModal({ isOpen, onClose }) {
             </>
           )}
 
-          {/* LANGUAGE */}
           {activeTab === "language" && (
             <>
               {["uk", "en"].map((code) => (
@@ -313,7 +293,6 @@ export default function SettingsModal({ isOpen, onClose }) {
             </>
           )}
 
-          {/* OTHER */}
           {activeTab === "other" && (
             <>
               <h3>Тема</h3>
@@ -379,7 +358,6 @@ export default function SettingsModal({ isOpen, onClose }) {
   );
 }
 
-// SIDEBAR ITEM
 function SidebarItem({ label, active, onClick }) {
   return (
     <div
@@ -391,7 +369,7 @@ function SidebarItem({ label, active, onClick }) {
         background: active ? "rgba(255,255,255,0.12)" : "transparent",
         color: active ? "#fff" : "rgba(255,255,255,0.65)",
         fontWeight: active ? 600 : 400,
-        whiteSpace: "nowrap", // MOBILE FIX
+        whiteSpace: "nowrap",
       }}
     >
       {label}

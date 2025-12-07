@@ -1,5 +1,3 @@
-// src/components/CalendarManager.jsx
-
 import React, { useState, useContext, useMemo, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { AuthContext } from "../context/AuthContext";
@@ -26,11 +24,9 @@ export default function CalendarManager({
 
   const [hiddenCalendars, setHiddenCalendars] = useState([]);
 
-  // === MEMBERS MODAL ===
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [membersCalendar, setMembersCalendar] = useState(null);
 
-  // === INVITE FORM (перенесено в MembersModal) ===
   const [inviteForm, setInviteForm] = useState({
     email: "",
     role: "member",
@@ -75,14 +71,10 @@ export default function CalendarManager({
     return "member";
   }, [membersCalendar, currentUserId]);
 
-  // ===============================
-  // 🔥 REALTIME – обновление календарей
-  // ===============================
   useEffect(() => {
     if (!socket) return;
 
     const handler = ({ calendar }) => {
-      // Обновляем список календарей
       setCalendars((prev) => {
         const exists = prev.some((c) => c._id === calendar._id);
         if (exists) {
@@ -91,7 +83,6 @@ export default function CalendarManager({
         return [...prev, calendar];
       });
 
-      // Если открыт MembersModal по этому календарю — тоже обновляем
       setMembersCalendar((prev) =>
         prev && prev._id === calendar._id ? calendar : prev
       );
@@ -100,10 +91,6 @@ export default function CalendarManager({
     socket.on("calendar_members_update", handler);
     return () => socket.off("calendar_members_update", handler);
   }, [setCalendars, setMembersCalendar]);
-
-  // =====================================================================
-  // CREATE / EDIT CALENDAR
-  // =====================================================================
 
   const openModalForEdit = (calendar) => {
     if (isMainCalendar(calendar))
@@ -171,10 +158,6 @@ export default function CalendarManager({
     setCalendars((prev) => prev.filter((c) => c._id !== calendar._id));
   };
 
-  // =====================================================================
-  // HIDE / SHOW CALENDAR
-  // =====================================================================
-
   const hideCalendar = async (calendar) => {
     if (isMainCalendar(calendar))
       return alert("Головний календар не можна приховати");
@@ -205,10 +188,6 @@ export default function CalendarManager({
     setHiddenCalendars((prev) => prev.filter((c) => c._id !== calendar._id));
     setCalendars((prev) => [...prev, data]);
   };
-
-  // =====================================================================
-  // MEMBERS MODAL
-  // =====================================================================
 
   const openMembersModal = (calendar) => {
     if (!isParticipant(calendar))
@@ -313,21 +292,13 @@ export default function CalendarManager({
     if (isSelf) closeMembersModal();
     else setMembersCalendar(data.calendar);
   };
-
-  // =====================================================================
-  // RENDER
-  // =====================================================================
-
   if (!isOpen) return null;
 
   return (
     <>
-      {/* MAIN MODAL */}
       <div style={overlay(theme)} onClick={onClose}>
         <div style={modal(theme)} onClick={(e) => e.stopPropagation()}>
           <h3 style={{ marginTop: 0 }}>🗂 Управління календарями</h3>
-
-          {/* Форма створення/редагування */}
           <form
             onSubmit={handleSave}
             style={{
@@ -408,7 +379,6 @@ export default function CalendarManager({
             </div>
           </form>
 
-          {/* Список календарів */}
           <h4 style={{ marginTop: 0 }}>📅 Ваші календарі</h4>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {calendars.map((c) => {
@@ -433,10 +403,8 @@ export default function CalendarManager({
                     </b>
                   </div>
 
-                  {/* Кнопки управления */}
                   {isMainCalendar(c) ? null : (
                     <div style={{ display: "flex", gap: 6 }}>
-                      {/* ==== HOLIDAY CALENDAR ==== */}
                       {isHolidayCalendar(c) ? (
                         <>
                           {ownerHere && (
@@ -485,7 +453,6 @@ export default function CalendarManager({
             })}
           </ul>
 
-          {/* Приховані */}
           <h4 style={{ marginTop: 18 }}>👁 Приховані календарі</h4>
           {hiddenCalendars.length === 0 ? (
             <p style={{ fontSize: 14 }}>Немає прихованих календарів</p>
@@ -515,13 +482,11 @@ export default function CalendarManager({
         </div>
       </div>
 
-      {/* MEMBERS MODAL */}
       {showMembersModal && membersCalendar && (
         <div style={overlay(theme)} onClick={closeMembersModal}>
           <div style={modal(theme)} onClick={(e) => e.stopPropagation()}>
             <h3>👥 Учасники "{membersCalendar.name}"</h3>
 
-            {/* === Новий учасник === */}
             <div style={{ marginBottom: 16 }}>
               <h4>Запросити нового учасника</h4>
 
@@ -573,7 +538,6 @@ export default function CalendarManager({
               )}
             </div>
 
-            {/* === OWNER === */}
             {membersCalendar.owner && (
               <div
                 style={{
@@ -598,13 +562,11 @@ export default function CalendarManager({
               </div>
             )}
 
-            {/* NO MEMBERS */}
             {!membersCalendar.editors?.length &&
               !membersCalendar.members?.length && (
                 <p style={{ fontSize: 14 }}>Додаткових учасників немає</p>
               )}
 
-            {/* === EDITORS === */}
             {membersCalendar.editors?.map((u) => {
               const id = u._id || u.id || u;
               const label =
@@ -665,7 +627,6 @@ export default function CalendarManager({
               );
             })}
 
-            {/* === MEMBERS === */}
             {membersCalendar.members?.map((u) => {
               const id = u._id || u.id || u;
               const label =
@@ -737,9 +698,6 @@ export default function CalendarManager({
     </>
   );
 }
-
-/* ============ STYLES ============ */
-
 const overlay = (theme) => ({
   position: "fixed",
   inset: 0,

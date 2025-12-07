@@ -10,7 +10,7 @@ function isSameId(a, b) {
 function broadcastCalendarUpdate(calendarId, populated) {
   try {
     global.io
-      .to(`calendar:${calendarId}`) // <-- правильное имя комнаты
+      .to(`calendar:${calendarId}`) 
       .emit("calendar_members_update", { calendar: populated });
   } catch (e) {
     console.error("Socket broadcast error:", e);
@@ -65,7 +65,7 @@ export const getCalendars = async (req, res) => {
 
     res.json(calendars);
   } catch (e) {
-    res.status(500).json({ error: "Ошибка загрузки календарей" });
+    res.status(500).json({ error: "Error loading calendars" });
   }
 };
 
@@ -92,7 +92,7 @@ export const createCalendar = async (req, res) => {
 
     res.status(201).json(populated);
   } catch (e) {
-    res.status(400).json({ error: "Ошибка создания календаря" });
+    res.status(400).json({ error: "Error creating calendar" });
   }
 };
 
@@ -102,12 +102,12 @@ export const updateCalendar = async (req, res) => {
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календарь не найден" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Только владелец может редактировать" });
+        .json({ error: "Only the owner can edit" });
 
     if (calendar.isMain) req.body.name = calendar.name;
 
@@ -138,7 +138,7 @@ export const updateCalendar = async (req, res) => {
 
     res.json(populated);
   } catch (e) {
-    res.status(400).json({ error: "Ошибка обновления" });
+    res.status(400).json({ error: "Update error" });
   }
 };
 
@@ -148,22 +148,22 @@ export const deleteCalendar = async (req, res) => {
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календарь не найден" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     if (calendar.isMain)
       return res
         .status(403)
-        .json({ error: "Главный календарь нельзя удалить" });
+        .json({ error: "The main calendar cannot be deleted." });
 
     if (calendar.isHolidayCalendar)
       return res
         .status(403)
-        .json({ error: "Календарь праздников нельзя удалить" });
+        .json({ error: "The holiday calendar cannot be deleted." });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Только владелец может удалить" });
+        .json({ error: "Only the owner can delete" });
 
     const users = [calendar.owner, ...calendar.editors, ...calendar.members];
 
@@ -180,9 +180,9 @@ export const deleteCalendar = async (req, res) => {
       await notifyUsersWithEmail(users, payload, req.user._id);
     }
 
-    res.json({ message: "Календарь удалён" });
+    res.json({ message: "The calendar has been deleted." });
   } catch (e) {
-    res.status(400).json({ error: "Ошибка удаления" });
+    res.status(400).json({ error: "Error deleting" });
   }
 };
 
@@ -192,16 +192,16 @@ export const hideCalendar = async (req, res) => {
     const calendar = await Calendar.findById(id);
 
     if (!calendar)
-      return res.status(404).json({ error: "Календарь не найден" });
+      return res.status(404).json({ error: "Calendar not found" });
     if (calendar.isMain)
       return res
         .status(403)
-        .json({ error: "Главный календарь нельзя скрыть" });
+        .json({ error: "The main calendar cannot be hidden" });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Только владелец может скрыть" });
+        .json({ error: "Only the owner can hide" });
 
     calendar.isHidden = true;
     await calendar.save();
@@ -213,7 +213,7 @@ export const hideCalendar = async (req, res) => {
 
     res.json(populated);
   } catch (e) {
-    res.status(400).json({ error: "Ошибка скрытия" });
+    res.status(400).json({ error: "Hiding error" });
   }
 };
 
@@ -223,12 +223,12 @@ export const showCalendar = async (req, res) => {
     const calendar = await Calendar.findById(id);
 
     if (!calendar)
-      return res.status(404).json({ error: "Календарь не найден" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Только владелец может вернуть" });
+        .json({ error: "Only the owner can return" });
 
     calendar.isHidden = false;
     await calendar.save();
@@ -240,7 +240,7 @@ export const showCalendar = async (req, res) => {
 
     res.json(populated);
   } catch (e) {
-    res.status(400).json({ error: "Ошибка показа" });
+    res.status(400).json({ error: "Display error" });
   }
 };
 
@@ -251,21 +251,21 @@ export const inviteUser = async (req, res) => {
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календар не знайдено" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     if (calendar.isMain || calendar.isHolidayCalendar)
       return res
         .status(403)
-        .json({ error: "Цей календар не можна розшарювати" });
+        .json({ error: "This calendar cannot be shared" });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Тільки власник може запрошувати" });
+        .json({ error: "Only the owner can invite" });
 
     const user = await User.findOne({ email });
     if (!user)
-      return res.status(404).json({ error: "Користувача не знайдено" });
+      return res.status(404).json({ error: "User not found" });
 
     if (role === "editor") {
       if (!calendar.editors.includes(user._id)) calendar.editors.push(user._id);
@@ -306,7 +306,7 @@ export const inviteUser = async (req, res) => {
     res.json({ message: "Користувача запрошено", calendar: populated });
   } catch (e) {
     console.error("inviteUser error:", e);
-    res.status(400).json({ error: "Ошибка приглашения" });
+    res.status(400).json({ error: "Invitation error" });
   }
 };
 
@@ -317,15 +317,15 @@ export const updateMemberRole = async (req, res) => {
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календар не знайдено" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     if (calendar.isMain || calendar.isHolidayCalendar)
-      return res.status(403).json({ error: "Не можна змінювати ролі" });
+      return res.status(403).json({ error: "You can't change roles." });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Тільки власник може змінювати ролі" });
+        .json({ error: "Only the owner can change roles" });
 
     if (role === "editor") {
       if (!calendar.editors.includes(userId)) calendar.editors.push(userId);
@@ -355,9 +355,9 @@ export const updateMemberRole = async (req, res) => {
 
     broadcastCalendarUpdate(calendar._id, populated);
 
-    res.json({ message: "Роль оновлено", calendar: populated });
+    res.json({ message: "Role updated", calendar: populated });
   } catch (e) {
-    res.status(400).json({ error: "Ошибка изменения роли" });
+    res.status(400).json({ error: "Role change error" });
   }
 };
 
@@ -371,7 +371,7 @@ export const removeCalendarMember = async (req, res) => {
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календар не знайдено" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     const isOwner = isSameId(calendar.owner, currentUserId);
     const isSelf = currentUserId === targetUserId;
@@ -413,7 +413,7 @@ export const removeCalendarMember = async (req, res) => {
       calendar: populated,
     });
   } catch (e) {
-    res.status(400).json({ error: "Ошибка удаления участника" });
+    res.status(400).json({ error: "Error deleting member" });
   }
 };
 
@@ -424,12 +424,12 @@ export const updateCalendarNotifications = async (req, res) => {
 
     const calendar = await Calendar.findById(id);
     if (!calendar)
-      return res.status(404).json({ error: "Календар не знайдено" });
+      return res.status(404).json({ error: "Calendar not found" });
 
     if (!isSameId(calendar.owner, req.user._id))
       return res
         .status(403)
-        .json({ error: "Тільки власник може змінювати" });
+        .json({ error: "Only the owner can change" });
 
     calendar.notificationsEnabled = Boolean(enabled);
     await calendar.save();
@@ -439,6 +439,6 @@ export const updateCalendarNotifications = async (req, res) => {
       notificationsEnabled: calendar.notificationsEnabled,
     });
   } catch (e) {
-    res.status(500).json({ error: "Ошибка обновления уведомлений" });
+    res.status(500).json({ error: "Update error notified" });
   }
 };

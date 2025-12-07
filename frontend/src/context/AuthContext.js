@@ -1,4 +1,3 @@
-// src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from "react";
 
 export const AuthContext = createContext();
@@ -23,8 +22,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("user", JSON.stringify(userData));
 
     setUser(userData);
-
-    // 🔥 ДИСПАТЧИМ СОБЫТИЕ, чтобы Navbar узнал об обновлении
     window.dispatchEvent(new CustomEvent("user_updated"));
   };
 
@@ -33,8 +30,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
 
     setUser(null);
-
-    // 🔥 Сообщаем Navbar, что user пропал
     window.dispatchEvent(new CustomEvent("user_updated"));
   };
 
