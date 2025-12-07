@@ -107,9 +107,7 @@ export default function Navbar() {
         });
         const list = await res.json();
         setNotifications(list);
-      } catch (err) {
-        console.log("Notif load error", err);
-      }
+      } catch {}
     };
 
     load();
@@ -151,6 +149,7 @@ export default function Navbar() {
       method: "POST",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
+
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, read: true } : n))
     );
@@ -161,6 +160,7 @@ export default function Navbar() {
       method: "POST",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
+
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
@@ -169,6 +169,7 @@ export default function Navbar() {
       method: "DELETE",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
     });
+
     setNotifications([]);
   };
 
@@ -199,7 +200,7 @@ export default function Navbar() {
   }
 
   // =======================================
-  // MAIN NAVBAR (DESKTOP + MOBILE)
+  // MAIN NAVBAR
   // =======================================
   return (
     <motion.nav
@@ -216,14 +217,10 @@ export default function Navbar() {
       }}
     >
       <div style={styles.rowBetween}>
-
-        {/* LEFT */}
         <ChronusLogo theme={theme} onClick={() => navigate("/calendar")} />
 
-        {/* RIGHT SIDE */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          
-          {/* MOBILE SWITCH (Calendar ↔ Chat) */}
+          {/* MOBILE SWITCH */}
           <div className="mobile-switch" style={{ display: "none" }}>
             {location.pathname.startsWith("/calendar") ? (
               <button
@@ -239,7 +236,7 @@ export default function Navbar() {
               >
                 💬
               </button>
-            ) : location.pathname.startsWith("/chat") ? (
+            ) : (
               <button
                 onClick={() => navigate("/calendar")}
                 style={{
@@ -253,10 +250,10 @@ export default function Navbar() {
               >
                 📅
               </button>
-            ) : null}
+            )}
           </div>
 
-          {/* DESKTOP NAV */}
+          {/* DESKTOP MENU */}
           <div className="desktop-nav" style={styles.desktopNav}>
             <NavButton theme={theme} active={active("/calendar")} onClick={() => navigate("/calendar")}>
               📅 Календар
@@ -299,11 +296,11 @@ export default function Navbar() {
               )}
             </button>
 
-            {/* POPUP */}
             <AnimatePresence>
               {notifOpen && (
                 <motion.div
                   ref={notifRef}
+                  className="notif-popup"
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -374,7 +371,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE STYLE */}
+      {/* MOBILE STYLES */}
       <style>{`
         @media (max-width: 768px) {
           .desktop-nav {
@@ -382,6 +379,28 @@ export default function Navbar() {
           }
           .mobile-switch {
             display: block !important;
+          }
+
+          .notif-popup {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 320px !important;
+            max-width: 92vw !important;
+            max-height: 60vh !important;
+            z-index: 5001 !important;
+          }
+
+          .notif-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.25);
+            backdrop-filter: blur(2px);
+            z-index: 5000;
           }
         }
       `}</style>
@@ -398,7 +417,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
 
   const closeMenu = () => setMenuOpen(false);
 
-  // CLICK OUTSIDE
   useEffect(() => {
     function handleClick(e) {
       if (menuOpen && menuRef.current && !menuRef.current.contains(e.target)) {
@@ -460,7 +478,6 @@ function UserMenu({ user, avatarLetter, avatarVersion, theme, logout, navigate }
         {user?.username}
       </button>
 
-      {/* MENU */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
