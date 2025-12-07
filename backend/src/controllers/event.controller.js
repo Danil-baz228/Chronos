@@ -1,5 +1,6 @@
 // ==============================
-// EVENTS CONTROLLER — FIXED TIMEZONE
+// EVENTS CONTROLLER — FULL VERSION
+// With timezone fix + notifications + email
 // ==============================
 
 import Event from "../models/Event.js";
@@ -13,7 +14,7 @@ import { io } from "../server.js";
 // HELPERS
 // ======================================================================
 
-// ✔ FIX: добавляем Z, если её нет → устраняет проблему +2 часа
+// ✔ FIX: додаємо "Z", якщо її немає → щоб не зміщувало +2 години
 function normalizeDate(date) {
   if (!date) return date;
   if (typeof date !== "string") return date;
@@ -35,20 +36,25 @@ async function getMainCalendarId(userId) {
   return cal?._id || null;
 }
 
-// 🔔 SOCKET + EMAIL
+// ======================================================================
+// 🔔 SOCKET + EMAIL NOTIFICATIONS
+// ======================================================================
 async function notifyUsersWithEmail(userIds, payload, actorId) {
   if (!Array.isArray(userIds)) userIds = [userIds];
 
   const ids = [...new Set(userIds.map((u) => u.toString()))];
 
+  // 1. socket
   ids.forEach((id) => {
     global.sendNotification(id, payload);
   });
 
-  const emailTargets = ids.filter((id) => id.toString() !== actorId?.toString());
+  // 2. email (не відправляти собі)
+  const emailTargets = ids.filter((id) => id !== actorId?.toString());
   if (!emailTargets.length) return;
 
   const users = await User.find({ _id: { $in: emailTargets } }).select("email");
+
   const subject = payload.title || "Сповіщення від Chronos";
 
   await Promise.all(
@@ -80,17 +86,20 @@ export const getEvents = async (req, res) => {
       holidayCalendar?._id?.toString(),
     ].filter(Boolean);
 
+    // Події користувача
     let calendarEvents = await Event.find({
       calendar: { $in: calendarIds },
     })
-      .populate("calendar", "isHolidayCalendar isMain")
+      .populate("calendar", "name isHolidayCalendar isMain")
       .populate("invitedFrom", "_id title");
 
+    // Приховати чужі holiday
     calendarEvents = calendarEvents.filter((ev) => {
       if (ev.category !== "holiday") return true;
       return allowedHolidayCals.includes(ev.calendar?._id?.toString());
     });
 
+    // Події, куди його запросили
     let invitedEvents = await Event.find({
       invitedUsers: userId,
     }).populate("invitedFrom", "_id title");
@@ -98,6 +107,7 @@ export const getEvents = async (req, res) => {
     const ownIds = new Set(calendarEvents.map((ev) => ev._id.toString()));
     invitedEvents = invitedEvents.filter((ev) => !ownIds.has(ev._id.toString()));
 
+    // Об’єднати
     const all = [...calendarEvents, ...invitedEvents];
     const allIds = all.map((e) => e._id);
 
@@ -110,12 +120,12 @@ export const getEvents = async (req, res) => {
     return res.json(populated);
   } catch (err) {
     console.error("❌ getEvents error:", err);
-    res.status(500).json({ error: "Ошибка загрузки событий" });
+    res.status(500).json({ error: "Помилка завантаження подій" });
   }
 };
 
 // ======================================================================
-// CREATE EVENT — FIXED DATE
+// CREATE EVENT — FIX DATE + NOTIFICATIONS
 // ======================================================================
 export const createEvent = async (req, res) => {
   try {
@@ -124,18 +134,19 @@ export const createEvent = async (req, res) => {
       return res.status(404).json({ error: "Календар не знайдено" });
 
     if (calendar.isHolidayCalendar)
-      return res.status(403).json({ error: "Неможливо створити подію в календарі свят" });
+      return res.status(403).json({ error: "Неможливо створити подію у святах" });
 
     const userId = req.user._id;
 
     const isOwner = isSameId(calendar.owner, userId);
     const isEditor = userInArray(userId, calendar.editors);
+
     if (!isOwner && !isEditor)
       return res.status(403).json({ error: "Немає прав створювати події" });
 
     const event = await Event.create({
       ...req.body,
-      date: normalizeDate(req.body.date), // 🔥 FIX
+      date: normalizeDate(req.body.date),
       creator: userId,
       invitedFrom: null,
       readOnly: false,
@@ -146,20 +157,40 @@ export const createEvent = async (req, res) => {
       .populate("invitedUsers", "username fullName email avatar")
       .populate("calendar", "name isMain isHolidayCalendar");
 
+    // 🔔 SOCKET
     io.to(`calendar:${calendar._id}`).emit("calendar_update", {
       type: "created",
       event: populated,
     });
 
+    // 🔔 EMAIL + PUSH
+    if (calendar.notificationsEnabled) {
+      const users = [
+        calendar.owner,
+        ...calendar.editors,
+        ...calendar.members,
+      ];
+
+      const payload = {
+        type: "event_created",
+        calendar: calendar._id,
+        event: event._id,
+        title: event.title,
+        message: `Нова подія "${event.title}" у календарі "${calendar.name}"`,
+      };
+
+      notifyUsersWithEmail(users, payload, req.user._id);
+    }
+
     return res.json({ success: true, event: populated });
   } catch (err) {
     console.error("❌ createEvent error:", err);
-    res.status(400).json({ error: "Помилка створення" });
+    res.status(400).json({ error: "Помилка створення події" });
   }
 };
 
 // ======================================================================
-// UPDATE EVENT — FIXED DATE
+// UPDATE EVENT — FIX DATE + NOTIFICATIONS
 // ======================================================================
 export const updateEvent = async (req, res) => {
   try {
@@ -167,13 +198,16 @@ export const updateEvent = async (req, res) => {
     if (!event)
       return res.status(404).json({ error: "Подію не знайдено" });
 
+    const calendar = await Calendar.findById(event.calendar);
+
     if (req.body.date) {
-      req.body.date = normalizeDate(req.body.date); // 🔥 FIX
+      req.body.date = normalizeDate(req.body.date);
     }
 
     Object.assign(event, req.body);
     await event.save();
 
+    // Синхронізація копій
     await Event.updateMany(
       { invitedFrom: event._id },
       {
@@ -191,10 +225,30 @@ export const updateEvent = async (req, res) => {
       .populate("invitedUsers", "username fullName email avatar")
       .populate("calendar", "name isMain isHolidayCalendar");
 
+    // SOCKET
     io.to(`calendar:${event.calendar}`).emit("calendar_update", {
       type: "updated",
       event: populated,
     });
+
+    // EMAIL
+    if (calendar.notificationsEnabled) {
+      const users = [
+        calendar.owner,
+        ...calendar.editors,
+        ...calendar.members,
+      ];
+
+      const payload = {
+        type: "event_updated",
+        calendar: calendar._id,
+        event: event._id,
+        title: event.title,
+        message: `Подію "${event.title}" оновлено у календарі "${calendar.name}"`,
+      };
+
+      notifyUsersWithEmail(users, payload, req.user._id);
+    }
 
     return res.json({ success: true, event: populated });
   } catch (err) {
@@ -204,7 +258,7 @@ export const updateEvent = async (req, res) => {
 };
 
 // ======================================================================
-// DELETE EVENT
+// DELETE EVENT — NOTIFICATIONS
 // ======================================================================
 export const deleteEvent = async (req, res) => {
   try {
@@ -215,14 +269,35 @@ export const deleteEvent = async (req, res) => {
     const calendar = await Calendar.findById(event.calendar);
 
     const deletedId = event._id;
+    const deletedTitle = event.title;
 
     await event.deleteOne();
     await Event.deleteMany({ invitedFrom: deletedId });
 
+    // SOCKET
     io.to(`calendar:${calendar._id}`).emit("calendar_update", {
       type: "deleted",
       eventId: deletedId,
     });
+
+    // EMAIL
+    if (calendar.notificationsEnabled) {
+      const users = [
+        calendar.owner,
+        ...calendar.editors,
+        ...calendar.members,
+      ];
+
+      const payload = {
+        type: "event_deleted",
+        calendar: calendar._id,
+        event: deletedId,
+        title: deletedTitle,
+        message: `Подію "${deletedTitle}" видалено з календаря "${calendar.name}"`,
+      };
+
+      notifyUsersWithEmail(users, payload, req.user._id);
+    }
 
     return res.json({ success: true });
   } catch (err) {
@@ -232,7 +307,7 @@ export const deleteEvent = async (req, res) => {
 };
 
 // ======================================================================
-// INVITE USER — FIXED DATE COPY
+// INVITE USER TO EVENT — FIX DATE + NOTIFICATIONS
 // ======================================================================
 export const inviteToEvent = async (req, res) => {
   try {
@@ -242,6 +317,8 @@ export const inviteToEvent = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event)
       return res.status(404).json({ error: "Подію не знайдено" });
+
+    const calendar = await Calendar.findById(event.calendar);
 
     const user = await User.findOne({ email });
 
@@ -260,7 +337,7 @@ export const inviteToEvent = async (req, res) => {
       if (!exists) {
         await Event.create({
           title: event.title,
-          date: normalizeDate(event.date), // 🔥 FIX
+          date: normalizeDate(event.date),
           duration: event.duration,
           category: event.category,
           description: event.description,
@@ -270,6 +347,19 @@ export const inviteToEvent = async (req, res) => {
           invitedFrom: event._id,
           readOnly: true,
         });
+      }
+
+      // EMAIL + PUSH to invited user
+      if (calendar.notificationsEnabled) {
+        const payload = {
+          type: "event_invited",
+          calendar: calendar._id,
+          event: event._id,
+          title: event.title,
+          message: `Вас запрошено до події "${event.title}" у календарі "${calendar.name}"`,
+        };
+
+        notifyUsersWithEmail(user._id.toString(), payload, req.user._id);
       }
     } else {
       if (!event.invitedEmails.includes(email)) {
@@ -297,7 +387,7 @@ export const inviteToEvent = async (req, res) => {
 };
 
 // ======================================================================
-// REMOVE INVITED USER
+// REMOVE INVITED USER — NOTIFICATIONS
 // ======================================================================
 export const removeInvite = async (req, res) => {
   try {
@@ -307,6 +397,8 @@ export const removeInvite = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event)
       return res.status(404).json({ error: "Подію не знайдено" });
+
+    const calendar = await Calendar.findById(event.calendar);
 
     if (type === "user") {
       event.invitedUsers = event.invitedUsers.filter(
@@ -318,6 +410,19 @@ export const removeInvite = async (req, res) => {
         invitedFrom: event._id,
         calendar: mainId,
       });
+
+      // EMAIL user removed
+      if (calendar.notificationsEnabled) {
+        const payload = {
+          type: "event_removed",
+          calendar: calendar._id,
+          event: event._id,
+          title: event.title,
+          message: `Вас видалено з події "${event.title}" у календарі "${calendar.name}"`,
+        };
+
+        notifyUsersWithEmail(value.toString(), payload, req.user._id);
+      }
     }
 
     if (type === "email") {

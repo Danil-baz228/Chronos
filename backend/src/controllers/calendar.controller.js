@@ -1,4 +1,3 @@
-// backend/src/controllers/calendar.controller.js
 import Calendar from "../models/Calendar.js";
 import User from "../models/User.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -8,9 +7,6 @@ function isSameId(a, b) {
   return a.toString() === b.toString();
 }
 
-/* ==========================================
-    SOCKET BROADCAST
-========================================== */
 function broadcastCalendarUpdate(calendarId, populated) {
   try {
     global.io
@@ -21,21 +17,15 @@ function broadcastCalendarUpdate(calendarId, populated) {
   }
 }
 
-
-/* ==========================================
-    EMAIL + SOCKET NOTIFICATION SYSTEM
-========================================== */
 async function notifyUsersWithEmail(users, payload, actorId) {
   if (!Array.isArray(users)) users = [users];
 
   const ids = [...new Set(users.map((u) => u.toString()))];
 
-  // socket — всем участникам
   ids.forEach((id) => {
     global.sendNotification(id, payload);
   });
 
-  // email — всем кроме инициатора
   const emailTargets = ids.filter(
     (id) => !actorId || id.toString() !== actorId.toString()
   );
@@ -62,9 +52,6 @@ async function notifyUsersWithEmail(users, payload, actorId) {
   );
 }
 
-/* ================================
-    GET CALENDARS
-================================ */
 export const getCalendars = async (req, res) => {
   try {
     const calendars = await Calendar.find({
@@ -82,9 +69,6 @@ export const getCalendars = async (req, res) => {
   }
 };
 
-/* ================================
-    CREATE CALENDAR
-================================ */
 export const createCalendar = async (req, res) => {
   try {
     const calendar = await Calendar.create({
@@ -112,9 +96,6 @@ export const createCalendar = async (req, res) => {
   }
 };
 
-/* ================================
-    UPDATE CALENDAR
-================================ */
 export const updateCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -161,9 +142,6 @@ export const updateCalendar = async (req, res) => {
   }
 };
 
-/* ================================
-    DELETE CALENDAR
-================================ */
 export const deleteCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -208,9 +186,6 @@ export const deleteCalendar = async (req, res) => {
   }
 };
 
-/* ================================
-    HIDE CALENDAR
-================================ */
 export const hideCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -242,9 +217,6 @@ export const hideCalendar = async (req, res) => {
   }
 };
 
-/* ================================
-    SHOW CALENDAR
-================================ */
 export const showCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -272,9 +244,6 @@ export const showCalendar = async (req, res) => {
   }
 };
 
-/* ================================
-    INVITE USER
-================================ */
 export const inviteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -313,7 +282,6 @@ export const inviteUser = async (req, res) => {
       "email fullName name"
     );
 
-    // email приглашение
     if (calendar.notificationsEnabled) {
       await sendEmail(
         email,
@@ -333,7 +301,6 @@ export const inviteUser = async (req, res) => {
       await notifyUsersWithEmail(user._id, payload, req.user._id);
     }
 
-    // 🔥 realtime обновление
     broadcastCalendarUpdate(calendar._id, populated);
 
     res.json({ message: "Користувача запрошено", calendar: populated });
@@ -343,9 +310,6 @@ export const inviteUser = async (req, res) => {
   }
 };
 
-/* ================================
-    UPDATE MEMBER ROLE
-================================ */
 export const updateMemberRole = async (req, res) => {
   try {
     const { id } = req.params;
@@ -389,7 +353,6 @@ export const updateMemberRole = async (req, res) => {
       await notifyUsersWithEmail(userId, payload, req.user._id);
     }
 
-    // 🔥 realtime обновление
     broadcastCalendarUpdate(calendar._id, populated);
 
     res.json({ message: "Роль оновлено", calendar: populated });
@@ -398,9 +361,6 @@ export const updateMemberRole = async (req, res) => {
   }
 };
 
-/* ================================
-    REMOVE MEMBER
-================================ */
 export const removeCalendarMember = async (req, res) => {
   try {
     const { id } = req.params;
@@ -446,7 +406,6 @@ export const removeCalendarMember = async (req, res) => {
       await notifyUsersWithEmail(targetUserId, payload, req.user._id);
     }
 
-    // 🔥 realtime update
     broadcastCalendarUpdate(calendar._id, populated);
 
     return res.json({
@@ -458,9 +417,6 @@ export const removeCalendarMember = async (req, res) => {
   }
 };
 
-/* ================================
-    UPDATE NOTIFICATIONS
-================================ */
 export const updateCalendarNotifications = async (req, res) => {
   try {
     const { id } = req.params;
