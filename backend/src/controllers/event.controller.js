@@ -1,10 +1,9 @@
-// backend/src/controllers/event.controller.js
 import Event from "../models/Event.js";
 import Calendar from "../models/Calendar.js";
 import User from "../models/User.js";
 import { getHolidays } from "../utils/getHolidays.js";
 import { sendEmail } from "../utils/sendEmail.js";
-import { io } from "../server.js";   //  <<< 🔥 добавлено
+import { io } from "../server.js";
 
 // ======================================================================
 // HELPERS
@@ -29,7 +28,7 @@ async function notifyUsersWithEmail(userIds, payload, actorId) {
 
   const ids = [...new Set(userIds.map((u) => u.toString()))];
 
-  // SOCKET to all users
+  // SOCKET
   ids.forEach((id) => {
     global.sendNotification(id, payload);
   });
@@ -106,7 +105,7 @@ export const getEvents = async (req, res) => {
 };
 
 // ======================================================================
-// CREATE EVENT — REALTIME
+// CREATE EVENT — NOW RETURNS POPULATED EVENT
 // ======================================================================
 export const createEvent = async (req, res) => {
   try {
@@ -115,9 +114,7 @@ export const createEvent = async (req, res) => {
       return res.status(404).json({ error: "Календар не знайдено" });
 
     if (calendar.isHolidayCalendar)
-      return res
-        .status(403)
-        .json({ error: "Неможливо створити подію в календарі свят" });
+      return res.status(403).json({ error: "Неможливо створити подію в календарі свят" });
 
     const userId = req.user._id;
     const isOwner = isSameId(calendar.owner, userId);
@@ -133,35 +130,19 @@ export const createEvent = async (req, res) => {
       readOnly: false,
     });
 
-    // 🔔 NOTIFY USERS
-    if (calendar.notificationsEnabled) {
-      const users = [
-        calendar.owner,
-        ...calendar.editors,
-        ...calendar.members,
-      ];
+    // populate before sending
+    const populated = await Event.findById(event._id)
+      .populate("creator", "fullName email")
+      .populate("invitedUsers", "fullName email")
+      .populate("calendar", "name isMain isHolidayCalendar");
 
-      await notifyUsersWithEmail(
-        users,
-        {
-          type: "event_created",
-          calendar: calendar._id,
-          event: event._id,
-          title: event.title,
-          message: `Нова подія "${event.title}" створена в календарі "${calendar.name}"`,
-          meta: { date: event.date, duration: event.duration },
-        },
-        req.user._id
-      );
-    }
-
-    // 🔥 REALTIME BROADCAST
+    // realtime broadcast with populated event
     io.to(`calendar:${calendar._id}`).emit("calendar_update", {
       type: "created",
-      event,
+      event: populated,
     });
 
-    return res.json({ success: true, event });
+    return res.json({ success: true, event: populated });
   } catch (err) {
     console.error("❌ createEvent error:", err);
     res.status(400).json({ error: "Помилка створення" });
@@ -169,7 +150,7 @@ export const createEvent = async (req, res) => {
 };
 
 // ======================================================================
-// UPDATE EVENT — REALTIME
+// UPDATE EVENT — RETURNS POPULATED EVENT
 // ======================================================================
 export const updateEvent = async (req, res) => {
   try {
@@ -196,7 +177,6 @@ export const updateEvent = async (req, res) => {
     Object.assign(event, req.body);
     await event.save();
 
-    // 🔔 sync invited clones
     await Event.updateMany(
       { invitedFrom: event._id },
       {
@@ -209,35 +189,17 @@ export const updateEvent = async (req, res) => {
       }
     );
 
-    // 🔔 NOTIFY USERS
-    if (calendar.notificationsEnabled) {
-      const users = [
-        calendar.owner,
-        ...calendar.editors,
-        ...calendar.members,
-      ];
+    const populated = await Event.findById(event._id)
+      .populate("creator", "fullName email")
+      .populate("invitedUsers", "fullName email")
+      .populate("calendar", "name isMain isHolidayCalendar");
 
-      await notifyUsersWithEmail(
-        users,
-        {
-          type: "event_updated",
-          calendar: calendar._id,
-          event: event._id,
-          title: event.title,
-          message: `Подію "${event.title}" оновлено в календарі "${calendar.name}"`,
-          meta: { date: event.date, duration: event.duration },
-        },
-        req.user._id
-      );
-    }
-
-    // 🔥 REALTIME BROADCAST
     io.to(`calendar:${calendar._id}`).emit("calendar_update", {
       type: "updated",
-      event,
+      event: populated,
     });
 
-    return res.json({ success: true, event });
+    return res.json({ success: true, event: populated });
   } catch (err) {
     console.error("❌ updateEvent error:", err);
     res.status(400).json({ error: "Помилка оновлення" });
@@ -266,35 +228,10 @@ export const deleteEvent = async (req, res) => {
       return res.status(403).json({ error: "Немає прав видалити" });
 
     const deletedId = event._id;
-    const deletedTitle = event.title;
-    const deletedDate = event.date;
 
     await event.deleteOne();
     await Event.deleteMany({ invitedFrom: deletedId });
 
-    // 🔔 notifications
-    if (calendar.notificationsEnabled) {
-      const users = [
-        calendar.owner,
-        ...calendar.editors,
-        ...calendar.members,
-      ];
-
-      await notifyUsersWithEmail(
-        users,
-        {
-          type: "event_deleted",
-          calendar: calendar._id,
-          event: deletedId,
-          title: deletedTitle,
-          message: `Подію "${deletedTitle}" видалено з календаря "${calendar.name}"`,
-          meta: { date: deletedDate },
-        },
-        req.user._id
-      );
-    }
-
-    // 🔥 REALTIME BROADCAST
     io.to(`calendar:${calendar._id}`).emit("calendar_update", {
       type: "deleted",
       eventId: deletedId,
@@ -307,9 +244,8 @@ export const deleteEvent = async (req, res) => {
   }
 };
 
-
 // ======================================================================
-// INVITE USER TO EVENT — WITH NOTIFICATIONS + EMAIL
+// INVITE USER
 // ======================================================================
 export const inviteToEvent = async (req, res) => {
   try {
@@ -358,22 +294,6 @@ export const inviteToEvent = async (req, res) => {
           readOnly: true,
         });
       }
-
-      // 🔔 NOTIFICATION for INVITED user
-      if (calendar.notificationsEnabled) {
-        const payload = {
-          type: "event_invited",
-          calendar: calendar._id,
-          event: event._id,
-          title: event.title,
-          message: `Вас запрошено до події "${event.title}" в календарі "${calendar.name}"`,
-          meta: {
-            date: event.date,
-          },
-        };
-
-        await notifyUsersWithEmail(user._id, payload, req.user._id);
-      }
     } else {
       if (!event.invitedEmails.includes(email))
         event.invitedEmails.push(email);
@@ -393,7 +313,7 @@ export const inviteToEvent = async (req, res) => {
 };
 
 // ======================================================================
-// REMOVE INVITED USER — WITH NOTIFICATIONS + EMAIL
+// REMOVE INVITED
 // ======================================================================
 export const removeInvite = async (req, res) => {
   try {
@@ -424,22 +344,6 @@ export const removeInvite = async (req, res) => {
         invitedFrom: event._id,
         calendar: mainId,
       });
-
-      // 🔔 notify removed user
-      if (calendar.notificationsEnabled) {
-        const payload = {
-          type: "event_removed",
-          calendar: calendar._id,
-          event: event._id,
-          title: event.title,
-          message: `Вас видалено з події "${event.title}" в календарі "${calendar.name}"`,
-          meta: {
-            date: event.date,
-          },
-        };
-
-        await notifyUsersWithEmail(value.toString(), payload, req.user._id);
-      }
     }
 
     if (type === "email") {
@@ -460,7 +364,7 @@ export const removeInvite = async (req, res) => {
 };
 
 // ======================================================================
-// SEARCH EVENTS
+// SEARCH
 // ======================================================================
 export const searchEvents = async (req, res) => {
   try {
